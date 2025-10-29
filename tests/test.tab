@@ -1,0 +1,178 @@
+import A from 'module'
+import {B, C as D} from "module2"
+import
+	B
+	C as D
+from "module2"
+import * as E from 'module3'
+
+x := number = 3
+xx := undefined or string
+y := "str"
+
+function a||
+	return 5
+
+async function a||
+	return await 5
+
+function b|arg: any, x: number or something| as number
+	return 5
+
+function b|
+	arg: any
+	x: number or something
+| as number
+	return 5
+
+function b|
+	arg: any
+	x: number or something
+|
+	return 5
+
+
+if x == 3
+	x = 4
+
+if x > 3 x++
+
+if done(a,b) proceed()
+
+if done(a,b)
+	proceed()
+
+if done.. a b
+	proceed()
+
+if (done.. a b) proceed()
+
+if done..
+	a
+	b
+.
+	proceed()
+
+data ::= [] as any
+
+x2 ::= {3: 4} as any
+sta := {a: 1, b: 2, c: {d: 3, [x2]: {f: 4}}}
+sto := {
+	a: 1
+	b: 2, // optional comma
+	c: {
+		d: 3
+		[x2]: {f: 4}
+	}
+}
+
+type x = {z: number, x:(number,test:string) => number | string, g:(number|string), a:(x)=>number, b:(x:number)=>void|string, c: ()=>void}
+
+(data[3]?.test as any)!.a++ + (4 as number)
+
+str : string = "test"
+
+type myFunc = |a: number, b: number| as number|string
+
+
+
+arr : number[] | undefined
+sa : [number, string] = [3, "test"]
+
+arr?.[1] as number & {test: number}
+arr![1]
+
+lala := <T>|| as T
+	return {} as T
+
+lala := <T>|| {} as T
+
+sdf := |t: '3' or {x: y}| return {}
+sdf({y:3})
+sdf.. {y:3}
+
+
+select := |t: 'a' or 'b' or 3| 'x'+t
+select(3)
+
+lala2 := <T extends Record<string, number>>|x: T| as T
+	return {} as T
+
+rest := |...args: number[]|
+	return args.reduce((a, b) => a + b)
+
+i :: any = 3
+i = i=3, i==4
+
+for x: in arr console.log.. x
+for x: of arr console.log.. x
+
+for(i=0,x=0; i < 10 as boolean; i++) .
+for(;;) break
+
+for(abc := 0; a<10; a++) console.log.. a
+for(abc : string;;) break
+for(abc : number|string = 0;;) break
+
+abstract class X<T extends Record<number,any>> extends Array<T>
+	arg: number
+	constructor(...args: T[])
+		super(...args)
+	method() as void .
+	abstract abstractMethod() as void
+	get length() as number
+		return super.length
+
+interface Something extends X<Record<number, string>> {
+	a: number
+	b: string
+	c: () => void
+}
+
+let XXXX = class name<S, T> {
+	constructor() {}
+}
+
+new XXXX<number,string>()
+
+let text = `This ${2 + (3 as number)} ${`works`}`
+
+enum E2 {
+	A,
+	B = 42,
+	C
+}
+  
+const enum Direction {
+	Up,
+	Down,
+	Left,
+	Right,
+}
+
+switch (day) {
+	case 0+a() as any:
+		console.log("It is a Sunday.")
+		break
+	case 1:
+		console.log("It is a Monday.")
+		// Fall through
+	default:
+		console.log("It's a day")
+	case 2:
+		console.log("It is a Tuesday.")
+		break
+}
+
+// templated args:
+templatedFunc<X|Y>
+templatedFunc<X|Y>()
+(3+4)<test | sdf>(x)<A>()
+
+// two comparisons:
+(3 + 4) < test | sdf > x
+
+test`string ${text as number} ${3 as number}`
+
+test`string`(text as number)
+
