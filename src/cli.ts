@@ -36,7 +36,7 @@ if (!inputFile) {
 // Set default output file if not specified
 outputFile ||= path.join(
   path.dirname(inputFile), 
-  path.basename(inputFile, path.extname(inputFile)) + '.js'
+  path.basename(inputFile, path.extname(inputFile)) + '.ts'
 );
 
 try {
