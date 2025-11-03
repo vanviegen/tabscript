@@ -92,17 +92,23 @@ arr![1]
 lala := <T>|| : T
 	return {} as T
 
-lala := <T>|| {} as T
+lala2 := <T>|| {} as T // Should be able to return literal objects
 
-sdf := |t: '3' or {x: y}|
-sdf({y:3})
-sdf& {y:3}
+// Signature overloading
+function sdf|t: '3' or {x: number}| : void
+function sdf|a: number, b: number| : number
+function sdf|a: any, b?: any|
+	return 123
 
+sdf({x:42})
+sdf& {x:42}
+sdf& '3'
+sdf& 5, 8
 
 select := |t: 'a' or 'b' or 3| 'x'+t
 select(3)
 
-lala2 := <T extends Record<string, number>>|x: T| : T
+lala3 := <T extends Record<string, number>>|x: T| : T
 	return {} as T
 
 rest := |...args: number[]|
@@ -131,11 +137,11 @@ interface Something extends X<Record<number, string>>
 	c|| : void
 
 XXXX := class name<S, T>
-	constructor|| {}
+	constructor|| {} // return a literal object
 
 new XXXX<number,string>()
 
-text := `This ${2 + (3 as number)} ${`works`}`
+text := `This ${lala& 2 (3 as number)} ${`works`}`
 
 enum E2
 	A
@@ -150,22 +156,21 @@ enum Direction
 	Left,
 	Right,
 
+day:number = 1
 switch day
-	case 0+a() as any
-		console.log("It is a Sunday.")
-		break
-	case 1
+	1
 		console.log("It is a Monday.")
-		// Fall through
-	default
-		console.log("It's a day")
-	case 2
-		console.log("It is a Tuesday.")
-		break
+	0+a() as any
+		console.log("It is a Sunday.")
+	*: console.log("It's a day")
+	2 console.log("It is a Tuesday.")
+
+function templatedFunc<A>||: A or A[]
+	return []
 
 // templated args:
-templatedFunc<X or Y>
-templatedFunc<X or Y>()
+templatedFunc<number or string>
+templatedFunc<number or string>()
 (3+4)<test or sdf>(x)<A>()
 
 // two comparisons:

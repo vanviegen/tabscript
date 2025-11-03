@@ -7,7 +7,7 @@ function descr(regexp: RegExp, name: string): RegExp {
 
 const
 // Atoms
-    WHITESPACE = descr(/(?:[ \t]|\/\/.*|\/\*[\s\S]*?\*\/)+/y, "whitespace"),
+    WHITESPACE = descr(/(?:[ \t\r]|\/\/.*|\/\*[\s\S]*?\*\/)+/y, "whitespace"),
     IDENTIFIER = descr(/[a-zA-Z_$][0-9a-zA-Z_$]*/y, "identifier"),
     STRING = descr(/(['"])(?:(?=(\\?))\2.)*?\1/y, "string"),
     NUMBER = descr(/[+-]?(?:0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/y, "number"),
@@ -55,8 +55,8 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
     let inPos = 0; // Current char in `inData`
     let inLine = 1; // Line number for `pos`
     let inCol = 1; // Column for `pos`
-    let indentLevel = 0; // Changed by eatNewline
-    let indentExpected = 0; // Changed by eatNewline()/eatDedent()
+    let indentLevel = 0;
+    let indentsPending = ''; // String of 'i'ndent/'d'edent tokens that are pending read()
     let inLastNewlinePos = 0;
 
     let outData = ''; // The output we've created so far
@@ -81,7 +81,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         // if (a==3) throw new Error();
         if (parseReturn() || parseThrow() || parseTypeDecl() || parseExport() || parseImport() || parseDoWhile()) {
             emit(';');
-        } else if (parseIfWhile() || parseFor() || parseTry() || parseFunction() || parseClass() || parseSwitch() || parseEnum() || parseDeclare()) {
+        } else if (parseIfWhile() || parseFor() || parseTry() || parseFunction(true) || parseClass() || parseSwitch() || parseEnum() || parseDeclare()) {
             // nop
         } else if (parseVarDecl() || parseExpressionSeq()) {
             emit(';');
@@ -110,7 +110,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         if (eat('default')) {
             must(parseExpression() || parseClass());
         } else {
-            must(parseVarDecl() || parseClass() || parseLiteralObject() || parseFunction());
+            must(parseVarDecl() || parseClass() || parseLiteralObject() || parseFunction(true));
         }
         return true;
     }
@@ -126,25 +126,27 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
     function parseEnum() {
         // enum Directions { Up, Down }
-        if (!eat('enum')) return false;
-        let identifier = must(eat(IDENTIFIER));
+        if (!read('enum')) return false;
+        let identifier = must(read(IDENTIFIER));
 
         const opts = {
             open: '{',
             close: '}',
             next: ',',
-            jsOpen: `var ${identifier} = (function (${identifier}) {`,
-            jsClose: `return ${identifier};})(${identifier} || {});`,
+            jsOpen: stripTypes ? `var ${identifier} = (function (${identifier}) {` : `enum ${identifier} {`,
+            jsClose: stripTypes ? `return ${identifier};})(${identifier} || {});` : '}',
+            jsNext: stripTypes ? null : ',',
             allowImplicit: true,
         };
         let nextNum = 0;
         return must(parseGroup(opts, () => {
-            const identifier = read(IDENTIFIER);
-            if (!identifier) return false;
+            const name = read(IDENTIFIER);
+            if (!name) return false;
             if (read('=')) {
                 nextNum = parseInt(must(read(NUMBER)));
             }
-            emit(`${identifier}[(${identifier}["${identifier}"] = ${nextNum++})] = "${identifier}";`);
+            if (stripTypes) emit(`${identifier}[(${identifier}["${name}"] = ${nextNum++})] = "${name}";`);
+            else emit(`${name} = ${nextNum++}`);
             return true;
         }));
     }
@@ -217,16 +219,27 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
     function parseSwitch() {
         if (!eat('switch')) return false;
+        emit('(');
         must(parseExpression);
-        let inCase = false;
-        must(parseGroup({open: '{', close: '}', allowImplicit: true}, () => {
-            if ((eat('case') && must(parseExpression)) || eat('default')) {
-                eat(':');
-                inCase = true;
-                return true;
-            } else {
-                return inCase && recoverErrors(() => parseStatement() || parseBlock());
+        emit(')');
+        must(parseGroup({jsOpen: '{', jsClose: '}', allowImplicit: true}, () => {
+            if (read('*')) emit('default:{');
+            else {
+                const saved = getOutState();
+                emit('case');
+                if (!parseExpression()) {
+                    restoreState(saved);
+                    return false;
+                }
+                emit(':{');
             }
+            read(':'); // optional
+
+            if (!parseGroup({next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement))) {
+                must(parseStatement());
+            }
+            emit('break;}');
+            return true;
         }));
     }
 
@@ -290,7 +303,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             inLine,
             inCol,
             indentLevel,
-            indentExpected,
+            indentsPending,
             inLastNewlinePos,
             // both in and out
             outTargetLine, 
@@ -314,7 +327,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             inLine = state.inLine;
             inCol = state.inCol;
             indentLevel = state.indentLevel;
-            indentExpected = state.indentExpected;
+            indentsPending = state.indentsPending;
             inLastNewlinePos = state.inLastNewlinePos;
         }
     }
@@ -334,7 +347,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
     function parseBlock() {
         // <indent> x=3 <newline> log(x) <newline> <dedent>
-        return parseGroup({open: '{', close: '}', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement, true));
+        return parseGroup({jsOpen: '{', jsClose: '}', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement, true));
     }
 
     function parseTemplateDef() {
@@ -378,7 +391,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         return isConstructor && propArgs ? propArgs : true;
     }
 
-    function parseFunction(defineByName=false) {
+    function parseFunction(declaration=false) {
         // |a,b| a+b
         // async |a,b| await a + await b
         // function |a,b| a+b
@@ -387,14 +400,14 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         // async |a,b| <indent> await log(a) <newline> await log(b) <newline> <dedent>
         // || 3
 
-        const savedOut = stripTypes && getOutState();
+        let savedOut = stripTypes && getOutState();
         
         const isAsync = eat('async');
         const isClassic = eat('function')
         if (isClassic) {
             eat('*'); // generator indicator (optional)
             eat(IDENTIFIER); // function name (optional)
-        } else if (defineByName) {
+        } else if (declaration) {
             must(!isAsync);
             return false;
         }
@@ -405,22 +418,25 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
         parseFuncType();
 
-        if (!isClassic) emit('=>');
+        if (!isClassic) {
+            savedOut ||= getOutState();
+            emit('=>');
+        }
 
         // Function body as a block?
         if (parseBlock()) return true;
 
         // Function body as an expression?
-        if (parseFuncExprBody(!isClassic)) return true;
+        if (isClassic ? parseClassicFuncExprBody() : parseArrowFuncExprBody()) return true;
 
         // No body. So it's an overload signature. This is all type info, so should be stripped.
-        if (savedOut) restoreState(savedOut);
+        must(declaration);
+        restoreState(savedOut);
         return true;
     }
 
-    function parseFuncExprBody(isArrow: boolean) {
-        if (isArrow) return parseExpression();
-        // For legacy functions, we need to wrap the body in a block
+    function parseClassicFuncExprBody() {
+        // For classic functions, we need to wrap the body in a block
         const savedOut = getOutState();
         emit('{return');
         if (!parseExpression()) {
@@ -429,6 +445,18 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         }
         emit('}');
         return true;
+    }
+
+    function parseArrowFuncExprBody() {
+        // We can output these as-is, except that object literals need to be wrapped in parentheses
+        const savedOut = getOutState();
+        emit('(');
+        if (parseLiteralObject()) {
+            emit(')');
+            return true;
+        }
+        restoreState(savedOut);
+        return parseExpression();
     }
 
     function parseFuncType() {
@@ -490,7 +518,8 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         else return false;
 
         while(true) {
-            if (parseGroup({open: '(', close: ')', next: ','}, () => { // myFunc(a, b, ...rest)
+            // Function call '(' may not be preceded by a whitespace (to distinguish from `myFunc& a (3+4)` syntax)
+            if (inData[inPos-1]!==' ' && parseGroup({open: '(', close: ')', next: ','}, () => { // myFunc(a, b, ...rest)
                 if (eat('...')) return must(parseExpression);
                 else return parseExpression();
             })) {}
@@ -716,7 +745,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         if (isDerived) must(parseExpression());
         while (eatType('implements')) must(parseType);
 
-        must(parseGroup({open: '{', close: '}', next: ';', jsNext: null, allowImplicit: true}, () => {
+        must(parseGroup({jsOpen: '{', jsClose: '}', next: ';', jsNext: null, allowImplicit: true}, () => {
             return recoverErrors(() => parseMethod(isInterface, isDerived), true);
         }));
         restoreState(saved);
@@ -786,7 +815,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         } else {
             // We need to insert property initializers in the constructor body right after super() or
             // at the start if this isn't a derived class.
-            const opts = {open: '{', close: '}', next: ';', jsNext: null, allowImplicit: true};
+            const opts = {jsOpen: '{', jsClose: '}', next: ';', jsNext: null, allowImplicit: true};
             let done = false;
             if (parseGroup(opts, () => {
                 if (!done && (!isDerived || (peek('super', '(') && must(parseStatement())))) {
@@ -833,7 +862,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             else expect.push(m);
         }
 
-        const got = indentExpected < indentLevel ? "INDENT" : indentExpected > indentLevel ? "DEDENT" : toJson(inData.substr(inPos,24));
+        const got = indentsPending ? (indentsPending[0]==='i' ? "INDENT" : "DEDENT") : toJson(inData.substr(inPos,24));
         let error = new ParseError(`Could not parse ${m[1]} at ${inLine}:${inCol}, got ${got}, expected one of:   ${joinTokens(expect, '   ')}`);
         if (attempts.length) (error as any).attempts = attempts;
         throw error;
@@ -884,7 +913,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         if (literalOpen) emit(jsOpen);
         else if (!opts.allowImplicit) return false;
 
-        const indentOpen = readNewline(true);
+        const indentOpen = readIndent();
         if (!literalOpen) {
             if (!indentOpen) return false;
             // We still need to insert jsOpen
@@ -908,98 +937,118 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         }
         restoreState(saved);
 
-        if (indentOpen) must(eatDedent());
+        if (indentOpen) must(readDedent());
         if (literalOpen && opts.close) must(read(opts.close));
-        emit(jsClose);
+        if (jsClose) {
+            if (inLine > outLine+1) {
+                // If there happens to be an empty line after this group,
+                // opportunistically put the closing character there for
+                // better looking output.
+                outTargetLine = outLine+1;
+                outTargetCol = inCol;
+            }
+            emit(jsClose);
+        }
 
         return true;
     }
 
-    function readNewline(withIndent: boolean = false) {
-        if (withIndent) {
-            if (indentExpected < indentLevel) {
-                if (debug) debugLog('eat DEDENT');
-                matchOptions.clear();
-                indentExpected++;
-                return true;
-            }
-        } else {
-            if (inLastNewlinePos === inPos) {
-                if (debug) debugLog('eat repeated NEWLINE');
-                matchOptions.clear();
-                return true;
-            }
+    function readNewline() {
+        if (inLastNewlinePos === inPos) {
+            // if (debug) debugLog('eat repeated NEWLINE');
+            return true;
         }
-        if (indentExpected !== indentLevel) {
+
+        if (indentsPending) {
             matchOptions.add('NEWLINE');
             return false;
         }
 
-        let result;
         const orgInPos = inPos;
+        
         // We're looping to filter out empty lines or lines with just comments
+        let forceIndent = false;
+        let newIndent;
         while(true) {
-            const savedInPos = inPos;
-            if (inPos < inData.length && inData[inPos] === '\r') inPos++;
             if (inPos >= inData.length) { // end-of-file counts as newline
-                result = {pos: savedInPos, level: 0};
+                newIndent = 0;
                 break;
-            }
-            if (!result && withIndent && inData[inPos] === ';') {
-                // Special case: allow ';' as indent starter
-                ++inPos;
-                result = {pos: savedInPos, level: indentLevel + 1};
-                continue;
             }
 
-            if (inData[inPos] !== '\n') {
-                inPos = savedInPos;
+            if (inData[inPos] === '\n') { // Newline
+                inPos++;
+
+                if (forceIndent) {
+                    if (newIndent !== undefined) {
+                        // Flush indent/dedent for the ; itself
+                        for(;indentLevel < newIndent; indentLevel++) indentsPending += 'i';
+                        for(;indentLevel > newIndent; indentLevel--) indentsPending += 'd';
+                    }
+
+                    indentLevel++;
+                    indentsPending += 'i';
+                    forceIndent = false;
+                }
+
+                newIndent = 0;
+                for(let i=inPos; i<inData.length && inData[i] === '\t'; i++) newIndent++;
+            } else if (inData[inPos] === ';' && !forceIndent) { // Semicolon before end-of-line forces indent to follow
+                forceIndent = true;
+                inPos++;
+            } else if (newIndent === undefined) { // No newline found
+                inPos = orgInPos;
+                matchOptions.add('NEWLINE');
+                return false;
+            } else { // This is not a newline but we found one earlier
                 break;
             }
-            inPos++;
             
             // Strip any whitespace and comments after newline
             WHITESPACE.lastIndex = inPos;
-            const whitespace = (WHITESPACE.exec(inData) || [""])[0];
-            inPos += whitespace.length;
-            
-            // Count tabs after newline
-            let level = 0;
-            for(level=0; level<whitespace.length && whitespace[level] === '\t'; level++) {}
-            result = {pos: savedInPos, level};
+            const match = WHITESPACE.exec(inData);
+            if (match) inPos += match[0].length;
         }
 
-        if (!result) {
-            matchOptions.add('NEWLINE');
-            return false;
-        }
-        if (withIndent) {
-            if (result.level <= indentLevel) {
-                inPos = orgInPos;
-                matchOptions.add('INDENT');
-                return false;
-            }
-            indentExpected++;
-        }
+        for(;indentLevel < newIndent; indentLevel++) indentsPending += 'i';
+        for(;indentLevel > newIndent; indentLevel--) indentsPending += 'd';
 
+        if (debug) debugLog(`eat ${JSON.stringify(inData.substring(orgInPos, inPos))} as NEWLINE indentsPending=${indentsPending}`);
         progressInLineAndCol(orgInPos);
         inLastNewlinePos = inPos;
-
-        indentLevel = result.level;
-        // lastNewlineEndPos = inPos;
-
-        if (debug) debugLog('eat '+(withIndent ? 'INDENT' : 'NEWLINE'));
 
         return true;
     }
 
-    function eatDedent() {
-        if (indentExpected > indentLevel) {
-            if (debug) debugLog('eat DEDENT');
-            indentExpected--;
+    function readIndent() {
+        let saved;
+        if (!indentsPending) {
+            saved = getInState();
+            if (!readNewline()) return false;
+        }
+        if (indentsPending && indentsPending[0] === 'i') {
+            indentsPending = indentsPending.slice(1);
+            if (debug) debugLog('eat INDENT');
             matchOptions.clear();
             return true;
         }
+        restoreState(saved);
+        matchOptions.add("INDENT");
+        return false;
+    }
+
+    function readDedent() {
+        let saved;
+        if (!indentsPending) {
+            saved = getInState();
+            if (!readNewline()) return false;
+        }
+        if (indentsPending && indentsPending[0] === 'd') {
+            indentsPending = indentsPending.slice(1);
+            if (debug) debugLog('eat DEDENT');
+            matchOptions.clear();
+            return true;
+        }
+        restoreState(saved);
         matchOptions.add("DEDENT");
         return false;
     }
@@ -1062,7 +1111,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
         for(let what of whats) {
             let result;
-            if (indentLevel != indentExpected) {
+            if (indentsPending) {
                 // We have indents/dedents pending, cannot eat anything else.
             } else if (typeof what === 'string') {
                 // If the what matches exactly *and* (`what` ends with a non-alpha-num
