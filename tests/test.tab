@@ -1,4 +1,7 @@
-import A from 'module'
+
+	# test
+
+import A from 'abc'
 import {B, C as D} from "module2"
 import
 	B
@@ -32,9 +35,13 @@ function b|
 |
 	return 5
 
+num :: 3
+if num == 3
+	num = 4
 
-if x == 3
-	x = 4
+# Strict equality checking by default
+assert& '3' != 3 # == translates to ===, != to !==
+assert& '3' =~ 3 # =~ translates to ==, !~ to !=
 
 if x > 3 x++
 
@@ -51,8 +58,12 @@ if (done& a b) proceed()
 if done&
 	a
 	b
-;
+; # the semicolon separates the function call args from the if-body
 	proceed()
+else if something()
+	rescue& a b
+else
+	halt()
 
 data ::= [] as any
 
@@ -60,7 +71,7 @@ x2 ::= {3: 4} as any
 sta := {a: 1, b: 2, c: {d: 3, [x2]: {f: 4}}}
 sto := {
 	a: 1
-	b: 2, // optional comma
+	b: 2, # optional comma
 	c: {
 		d: 3
 		[x2]: {f: 4}
@@ -92,9 +103,9 @@ arr![1]
 lala := <T>|| : T
 	return {} as T
 
-lala2 := <T>|| {} as T // Should be able to return literal objects
+lala2 := <T>|| {} as T # Should be able to return literal objects
 
-// Signature overloading
+# Signature overloading
 function sdf|t: '3' or {x: number}| : void
 function sdf|a: number, b: number| : number
 function sdf|a: any, b?: any|
@@ -137,7 +148,7 @@ interface Something extends X<Record<number, string>>
 	c|| : void
 
 XXXX := class name<S, T>
-	constructor|| {} // return a literal object
+	constructor|| {} # return a literal object
 
 new XXXX<number,string>()
 
@@ -168,18 +179,18 @@ switch day
 function templatedFunc<A>||: A or A[]
 	return []
 
-// templated args:
+# templated args:
 templatedFunc<number or string>
 templatedFunc<number or string>()
 (3+4)<test or sdf>(x)<A>()
 
-// two comparisons:
+# two comparisons:
 (3 + 4) < test or sdf > x
 
 test`string ${text as number} ${3 as number}`
 
 test`string`(text as number)
 
-// Binary logic
+# Binary logic
 
-result := x ~bit_xor y ~bit_and z ~bit_or ~bit_not 123 ~shift_left 2
+result := x %bit_xor y %bit_and z %bit_or %bit_not 123 %shift_left 2

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 import {tabscript} from "./tabscript.js";
 
 // Parse command line arguments
 const args = process.argv.slice(2);
-let inputFile, outputFile, debug = false, recover = false, stripTypes = false;
+let inputFile, outputFile, debug = false, recover = false, stripTypes = false, whitespace: 'preserve' | 'pretty' = 'preserve';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--output') {
@@ -20,6 +20,17 @@ for (let i = 0; i < args.length; i++) {
     recover = true;
   } else if (args[i] === '--strip-types') {
     stripTypes = true;
+  } else if (args[i] === '--whitespace') {
+    if (i + 1 >= args.length) {
+      console.error('Error: --whitespace requires a value (preserve or pretty)');
+      process.exit(1);
+    }
+    const value = args[++i];
+    if (value !== 'preserve' && value !== 'pretty') {
+      console.error(`Error: --whitespace must be 'preserve' or 'pretty', got '${value}'`);
+      process.exit(1);
+    }
+    whitespace = value;
   } else if (!inputFile) {
     inputFile = args[i];
   } else {
@@ -40,10 +51,21 @@ outputFile ||= path.join(
 );
 
 try {
-  fs.writeFileSync(
-    outputFile, 
-    tabscript(fs.readFileSync(inputFile, 'utf8'), {debug, recover, stripTypes})
-  );
+  const result = tabscript(fs.readFileSync(inputFile, 'utf8'), {debug, recover, stripTypes, whitespace});
+  
+  // Display any errors that were recovered from
+  if (result.errors.length > 0) {
+    for (const error of result.errors) {
+      console.error(`Error at ${error.line}:${error.column}: ${error.message}`);
+    }
+  }
+  
+  fs.writeFileSync(outputFile, result.code);
+  
+  // Exit with error code if there were any errors
+  if (result.errors.length > 0) {
+    process.exit(1);
+  }
 } catch (e) {
   console.error(e);
   process.exit(1);

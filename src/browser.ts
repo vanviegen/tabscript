@@ -51,7 +51,7 @@ export async function transpile(tsE: Element): Promise<void> {
     
     // Convert TabScript to JavaScript
     const jsE = document.createElement('script');
-    let js = tabscript(ts, {recover: true, transformImport});
+    let {code: js} = tabscript(ts, {transformImport});
     if (src) js += "\n//# sourceURL=" + src;
     jsE.textContent = js;
     jsE.setAttribute('type', 'module');

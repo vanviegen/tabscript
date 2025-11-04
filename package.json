@@ -22,9 +22,8 @@
         },
         "./package.json": "./package.json"
     },
-    
     "scripts": {
-        "build": "rm -rf dist dist-min ; tsc --target es2023 --declaration --sourceMap --outDir dist src/*.ts && mkdir -p dist-min && for f in dist/*.js; do terser --module --mangle module --keep-fnames --source-map -o dist-min/$(basename $f) -- $f; done && cp dist/*.d.ts dist-min",
+        "build": "rm -rf dist dist-min ; tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts && mkdir -p dist-min && for f in dist/*.js; do terser --module --mangle module --keep-fnames --source-map -o dist-min/$(basename $f) -- $f; done && cp dist/*.d.ts dist-min",
         "test": "./bin/cli.js tests/test.ts --output /dev/stdout | diff -u tests/test.js - && ./bin/cli.js tests/error.ts --recover --output /dev/stdout 2> /dev/null | diff -u tests/error.js - && echo OK",
         "prepack": "npm run build && npm run test"
     },
@@ -47,9 +46,10 @@
     },
     "homepage": "https://github.com/vanviegen/tabscript#readme",
     "devDependencies": {
+        "@types/node": "^24.10.0",
         "terser": "^5.39.0",
         "typescript": "^5.8.3"
     },
     "type": "module",
-    "types": "dist-min/aberdeen.d.ts"    
+    "types": "dist-min/aberdeen.d.ts"
 }

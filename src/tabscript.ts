@@ -1,4 +1,13 @@
-export class ParseError extends Error {}
+export class ParseError extends Error {
+    /** Input code that was skipped in an attempt to recover from the error. */
+    public recoverSkip: string | undefined;
+    constructor(public offset: number, public line: number, public column: number, message: string) {
+        super(message);
+    }
+    toString() {
+        return `ParseError at ${this.line}:${this.column}: ${this.message}`;
+    }
+}
 
 function descr(regexp: RegExp, name: string): RegExp {
     regexp.toString = () => '<'+name+'>';
@@ -7,13 +16,13 @@ function descr(regexp: RegExp, name: string): RegExp {
 
 const
 // Atoms
-    WHITESPACE = descr(/(?:[ \t\r]|\/\/.*|\/\*[\s\S]*?\*\/)+/y, "whitespace"),
+    WHITESPACE = descr(/[ \t\r]*(?:#.*)?/y, "whitespace"),
     IDENTIFIER = descr(/[a-zA-Z_$][0-9a-zA-Z_$]*/y, "identifier"),
     STRING = descr(/(['"])(?:(?=(\\?))\2.)*?\1/y, "string"),
     NUMBER = descr(/[+-]?(?:0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/y, "number"),
-    OPERATOR = descr(/instanceof\b|in\b|[!=]==|[+\-*\/!=<>]=|[+\-*\/=<>]/y, "bin-op"),
+    OPERATOR = descr(/instanceof\b|in\b|or\b|and\b|[!=]~|[+\-*\/!=<>]=|[+\-*\/=<>]|%[a-z_]+/y, "bin-op"),
     BACKTICK_STRING = descr(/[\s\S]*?(\${|`)/y, "`string`"),
-    EXPRESSION_PREFIX = descr(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b/y, "unary-op"),
+    EXPRESSION_PREFIX = descr(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b|new\b/y, "unary-op"),
     REGEXP = descr(/\/(\\.|[^\/])+\/[gimsuyd]*/y, "regexp"),    
 // Other regexes
     ANYTHING = /[\s\S]/y,
@@ -21,21 +30,28 @@ const
     START_WORD_CHAR = /^[a-zA-Z0-9_$]/,
     IS_WORD_CHAR = /^[a-zA-Z0-9_$]$/;
 
-const NAMED_BINOPS: Record<string, string> = {
-    bit_or: '|',
-    bit_and: '&',
-    bit_xor: '^',
-    shift_left: '<<',
-    shift_right: '>>',
-    unsigned_shift_right: '>>>',
-    modulo: '%',
-}
+const REPLACE_OPERATORS: Record<string, string> = {
+    "or": "||",
+    "and": "&&",
+    "==": "===",
+    "!=": "!==",
+    "=~": "==",
+    "!~": "!=",
+    "%modulo": '%',
+    "%bit_or": '|',
+    "%bit_and": '&',
+    "%bit_xor": '^',
+    "%shift_left": '<<',
+    "%shift_right": '>>',
+    "%unsigned_shift_right": '>>>',
+};
 
 export type Options = {
     debug?: boolean | ((...args: string[]) => void),
     recover?: boolean,
     stripTypes?: boolean,
     transformImport?: (uri: string) => string,
+    whitespace?: 'preserve' | 'pretty',
 };
 
 
@@ -44,37 +60,64 @@ export type Options = {
  * 
  * @param inData The input TabScript.
  * @param options An optional object containing the following optional properties:
- *   - `debug` When `true`, each consumed token is logged to stdout. If it's a function, the same is logged to the function.
+ *   - `debug` When `true`, each consumed token is logged. If it's a function, that function will be called instead of `console.debug`.
  *   - `recover` When `true`, the function will attempt to continue transpilation when it encounters an error in the input (or unsupported syntax), instead of throwing. Errors are logged to `console.error`.
  *   - 'stripTypes' When `true`, we'll transpile to JavaScript instead of TypeScript. Note that TabScript will not perform any type checking, just strip out the type info.
  *   - `transformImport` An async function that gets an `import` URI, and returns the URI to be include included in the transpiled output.
- * @returns The output JavaScript, if all went well.
- * @throws ParserError, if something went wrong.
+ *   - `whitespace` When `"preserve"` (the default), output is made to closely align with input line/column positions. When `"pretty"`, output is formatted with human-friendly indentation and spacing.
+ * @returns An object containing:
+ *  - `code`: The transpiled TypeScript/JavaScript code.
+ *  - `errors`: An array of errors encountered during transpilation (if any) of the form: `{ message: string, line: number, column: number, offset: number }`. If `recover` is not set, this array will contain at most one error.
+ *  - `map`: An object mapping input offsets to output offsets, of the form: `{ in: number[], out: number[] }`, where each index corresponds to a mapping pair.
+ * @throws ParserError, if there's a compilation error and `recover` is not set.
  */
-export function tabscript(inData: string, {debug,recover,transformImport,stripTypes}: Options = {}): string {
+
+export function tabscript(inData: string, options: Options = {}): {
+    code: string,
+    errors: ParseError[],
+    map: {
+        in: number[],
+        out: number[],
+    }
+} {
+    options.whitespace ||= 'preserve';
+    const {debug,recover,transformImport,stripTypes,whitespace} = options;
+    
     let inPos = 0; // Current char in `inData`
     let inLine = 1; // Line number for `pos`
     let inCol = 1; // Column for `pos`
     let indentLevel = 0;
     let indentsPending = ''; // String of 'i'ndent/'d'edent tokens that are pending read()
-    let inLastNewlinePos = 0;
+    let inLastNewlinePos = -1;
 
     let outData = ''; // The output we've created so far
     let outLine = 1;
     let outCol = 1;
-    let outTargetLine: number | undefined; // The line/col our last read input token starts, and where output should be synced to
-    let outTargetCol: number | undefined; // These are set by read() and used+reset by emit()
+    let outTargetPos: number | undefined; // The position of our last read input token start, and where output should be synced to
+    let outTargetLine: number | undefined; // These are set by read() and used+reset by emit()
+    let outTargetCol: number | undefined; 
+
+    let inOutMap = {in: [] as number[], out: [] as number[]};
+    let errors: ParseError[] = [];
 
     let matchOptions: Set<RegExp | string | ParseError | (RegExp | string)[]> = new Set(); // The set of tokens we've tried and failed to match at this `pos`
 
     parseMain();
-    return outData;
+    return {
+        code: outData,
+        errors,
+        map: inOutMap
+    }
 
 
     ///// Recursive decent parser functions /////
 
     function parseMain() {
-        while(inPos < inData.length) must(recoverErrors(parseStatement, true) && readNewline());
+        if (!stripTypes) emit('"use strict";');
+        readNewline(); // optionally start with some newlines/comments
+        while(inPos < inData.length) recoverErrors(() => {
+            must(parseStatement) && must(readNewline());
+        });
     }
 
     function parseStatement() {
@@ -163,11 +206,11 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         // if (go) launch(); else abort();
         const name = eat('if') || eat('while');
         if (!name) return false;
-        emit('(');
+        emit('(', false);
         must(parseExpression);
-        emit(')');
+        emit(')', false);
         must(parseBlock() || parseStatement());
-        if (name==='if' && eat('else')) must(parseStatement);
+        if (name==='if' && eat('else')) must(parseBlock() || parseStatement());
         return true;
     }
 
@@ -195,7 +238,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         // for x:=0; x<10; x++ log(x)
         
         if (!eat('for')) return false;
-        emit('(');
+        emit('(', false);
 
         const saved = Object.assign(getInState(), getOutState());
 
@@ -207,38 +250,41 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             restoreState(saved);
             (parseVarDecl() || parseExpression()) ? read(';') : must(read(';')); // semi is non-optional when there's no expression
             for(let i=0; i<2; i++) {
-                emit(';');
+                emit(';', false);
                 parseExpression() ? read(';') : must(read(';'));
             }
         }
 
-        emit(')');
+        emit(')', false);
         must(parseStatement() || parseBlock());
         return true;
     }
 
     function parseSwitch() {
         if (!eat('switch')) return false;
-        emit('(');
+        emit('(', false);
         must(parseExpression);
-        emit(')');
+        emit(')', false);
         must(parseGroup({jsOpen: '{', jsClose: '}', allowImplicit: true}, () => {
-            if (read('*')) emit('default:{');
+            if (read('*')) emit('default: {', true);
             else {
                 const saved = getOutState();
+                outTargetCol = inCol;
+                outTargetLine = inLine;
+                outTargetPos = inPos;
                 emit('case');
                 if (!parseExpression()) {
                     restoreState(saved);
                     return false;
                 }
-                emit(':{');
+                emit(': {', false);
             }
             read(':'); // optional
 
             if (!parseGroup({next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement))) {
                 must(parseStatement());
             }
-            emit('break;}');
+            emit('break;}', false);
             return true;
         }));
     }
@@ -292,6 +338,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             outLine,
             outCol,
             // both in and out
+            outTargetPos,
             outTargetLine,
             outTargetCol
         };
@@ -306,6 +353,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             indentsPending,
             inLastNewlinePos,
             // both in and out
+            outTargetPos,
             outTargetLine, 
             outTargetCol
         };
@@ -318,7 +366,8 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             outLine = state.outLine;
             outCol = state.outCol;
         }
-        if ('outTargetLine' in state) {
+        if ('outTargetPos' in state) {
+            outTargetPos = state.outTargetPos;
             outTargetLine = state.outTargetLine;
             outTargetCol = state.outTargetCol;
         }
@@ -347,7 +396,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
     function parseBlock() {
         // <indent> x=3 <newline> log(x) <newline> <dedent>
-        return parseGroup({jsOpen: '{', jsClose: '}', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement, true));
+        return parseGroup({jsOpen: '{', jsClose: '}', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement));
     }
 
     function parseTemplateDef() {
@@ -364,12 +413,12 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         return false;
     }
 
-    function parseFuncParams(isConstructor=false) {
+    function parseFuncParams(isConstructor=false, parenthesis=false) {
         let propArgs = "";
         // (public a, b?: string, c=3, ...d: any[])
         const opts = {
-            open: '|',
-            close: '|',
+            open: parenthesis ? '(' : '|',
+            close: parenthesis ? ')' : '|',
             next: ',',
             jsOpen: '(',
             jsClose: ')'
@@ -413,8 +462,9 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         }
         const hasTemplate = parseTemplateDef();
 
-        if (isAsync || isClassic || hasTemplate) must(parseFuncParams());
-        else if (!parseFuncParams()) return false;
+        if (isClassic) parseFuncParams() || parseFuncParams(false, true) || emit('()', false); // Optional, and allow with braces
+        else if (isAsync || hasTemplate) must(parseFuncParams());
+        else if (!parseFuncParams()) return false; // Nothing has been parsed
 
         parseFuncType();
 
@@ -431,6 +481,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
         // No body. So it's an overload signature. This is all type info, so should be stripped.
         must(declaration);
+        emit(';');
         restoreState(savedOut);
         return true;
     }
@@ -438,21 +489,21 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
     function parseClassicFuncExprBody() {
         // For classic functions, we need to wrap the body in a block
         const savedOut = getOutState();
-        emit('{return');
+        emit('{return', false);
         if (!parseExpression()) {
             restoreState(savedOut);
             return false;
         }
-        emit('}');
+        emit('}', false);
         return true;
     }
 
     function parseArrowFuncExprBody() {
         // We can output these as-is, except that object literals need to be wrapped in parentheses
         const savedOut = getOutState();
-        emit('(');
+        emit('(', false);
         if (parseLiteralObject()) {
-            emit(')');
+            emit(')', false);
             return true;
         }
         restoreState(savedOut);
@@ -461,6 +512,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
     function parseFuncType() {
         if (!eat(':')) return false;
+        eat('asserts');
         must(parseType);
         return true;
     }
@@ -486,11 +538,11 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         // something::
         const match = read(IDENTIFIER, ':');
         if (!match) return false;
-        emit(read(':') ? 'let': 'const');
+        emit(read(':') ? 'let': 'const', false);
         emit(match[0]);
 
         const saved = getOutState();
-        emit(':');
+        emit(':', false);
         if (!parseType()) restoreState(saved);
 
         if (allowInit && eat('=')) {
@@ -504,19 +556,18 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         let required = false;
         while(true) {
             if (!eat(EXPRESSION_PREFIX)) {
-                if (!read('~', 'bit_not')) break;
+                if (!read('%bit_not')) break;
                 emit('~');
             }
             required = true;
         }
-
-        if (eat('new')) required = true;
         
         // IDENTIFIER also covers things like `break` and `continue`
         if (parseClass() || parseFunction() || eat(IDENTIFIER) || parseLiteralArray() || parseLiteralObject() || eat(STRING) || parseBacktickString() || eat(NUMBER) || parseParenthesised() || eat(REGEXP)) {}
         else if (required) must(false);
         else return false;
 
+        let tmp;
         while(true) {
             // Function call '(' may not be preceded by a whitespace (to distinguish from `myFunc& a (3+4)` syntax)
             if (inData[inPos-1]!==' ' && parseGroup({open: '(', close: ')', next: ','}, () => { // myFunc(a, b, ...rest)
@@ -546,24 +597,10 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             else if (eat('?.')) must(eat(IDENTIFIER) || parseIndex());
             else if (!peek('..') && eat('.')) must(eat(IDENTIFIER));
             else if (parseTemplateArg()) {}
-            else if (read('or')) {
-                emit('||');
-                must(parseExpression());
-            }
-            else if (read('and')) {
-                emit('&&');
-                must(parseExpression());
-            }
-            else if (read('~')) { // Named binary operators
-                const identifier = must(read(IDENTIFIER));
-                const target = NAMED_BINOPS[identifier];
-                if (!target) throw new ParseError("Invalid named binary operator "+identifier);
-                emit(target);
-                eat('='); // Optional assignment variant
-                must(parseExpression);
-                return true;
-            }
-            else if (eat(OPERATOR)) {
+            else if (tmp = read(OPERATOR)) {
+                must(tmp[0]!=='%' || (tmp in REPLACE_OPERATORS));
+                emit(REPLACE_OPERATORS[tmp] || tmp);
+                eat('='); // Optional replacement operator (doesn't always make sense, but that's TypeScript's problem :-))
                 must(parseExpression);
                 return true;
             }
@@ -697,6 +734,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         while (true) {
             if (read('or')) emitType('|');
             else if (read('and')) emitType('&');
+            else if (eat('is')) {}
             else break;
             must(parseType(false)); // Don't allow function types in unions/intersections
         }
@@ -746,7 +784,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         while (eatType('implements')) must(parseType);
 
         must(parseGroup({jsOpen: '{', jsClose: '}', next: ';', jsNext: null, allowImplicit: true}, () => {
-            return recoverErrors(() => parseMethod(isInterface, isDerived), true);
+            return recoverErrors(() => parseMethod(isInterface, isDerived));
         }));
         restoreState(saved);
         return true;
@@ -822,7 +860,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
                     emit(propArgs);
                     done = true;
                 }
-                return recoverErrors(parseStatement, true);
+                return recoverErrors(parseStatement);
             })) return true;
         }
 
@@ -842,6 +880,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         restoreState(bodyOutState); // Failed to parse expression, revert output (not just when type stripping)
 
         // No body. So it's an overload signature. This is all type info, so should be stripped.
+        emit(';');
         restoreState(typeOutState);
         return true;
     }
@@ -854,40 +893,32 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         let stack = new Error().stack || '';
         let m = /\bat parse([A-Z][a-zA-Z]*)/.exec(stack) || ['', 'top-level'];
 
-        let expect: any = [];
-        let attempts: string[] = [];
-        for (let m of matchOptions) {
-            if (m instanceof ParseError) attempts.push(m.message);
-            else if (m instanceof Array) expect.push(joinTokens(m, ' + '));
-            else expect.push(m);
-        }
-
         const got = indentsPending ? (indentsPending[0]==='i' ? "INDENT" : "DEDENT") : toJson(inData.substr(inPos,24));
-        let error = new ParseError(`Could not parse ${m[1]} at ${inLine}:${inCol}, got ${got}, expected one of:   ${joinTokens(expect, '   ')}`);
-        if (attempts.length) (error as any).attempts = attempts;
+        let error = new ParseError(inPos, inLine, inCol, `Could not parse ${m[1]} as input is ${got} but we expected one of:   ${joinTokens(Array.from(matchOptions))}`);
         throw error;
     }
 
-    function recoverErrors(func: () => any, required=false) {
+    function recoverErrors(func: () => any) {
         if (!recover) return func();
         let startPos = inPos;
-        let startIndentLevel = indentLevel;
+        const startIndentLevel = indentLevel;
         try {
-            const res = func();
-            if (required && startPos === inPos) must(false);
-            return res;
+            return func();
         } catch(e) {
             if (!(e instanceof ParseError)) throw e;
-            console.error(e);
-            console.error('Attempting to recover...')
+            errors.push(e);
 
+            let level = indentLevel - startIndentLevel;
             while(inPos < inData.length) {
-                if (readNewline() && indentLevel <= startIndentLevel) break;
-                must(eat(IDENTIFIER) || eat(STRING) || eat(ANYTHING));
+                if (readIndent()) level++;
+                if (readNewline() && level <= 0 && inPos > startPos) {
+                    e.recoverSkip = inData.substring(startPos, inPos);
+                    emit(';');
+                    return true; // Fake success
+                }
+                if (readDedent()) level--;
+                else must(read(IDENTIFIER) || read(STRING) || read(ANYTHING));
             }
-
-            // We fake success if at least *something* was read.
-            return (inPos > startPos);
         }
     }
 
@@ -992,6 +1023,9 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
 
                 newIndent = 0;
                 for(let i=inPos; i<inData.length && inData[i] === '\t'; i++) newIndent++;
+                if (inData[inPos + newIndent] === ' ') {
+                    throw new ParseError(inPos + newIndent, inLine+1, 1 + newIndent, "Space indentation is not allowed, use tabs only");
+                }
             } else if (inData[inPos] === ';' && !forceIndent) { // Semicolon before end-of-line forces indent to follow
                 forceIndent = true;
                 inPos++;
@@ -1057,10 +1091,11 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         if (!stripTypes) emit(text);
     }
 
-    function emit(text: string | undefined | null) {
+    function emit(text: string | undefined | null, toMap=true) {
         if (!text) return;
         
         // Insert newlines to reach target line
+
         if (outTargetLine != null) {
             while (outLine < outTargetLine) {
                 outData += '\n';
@@ -1068,21 +1103,44 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
                 outCol = 1;
             }
         }
-        
-        const spaceCount = Math.max(
-            outData.length && outData[outData.length - 1].match(IS_WORD_CHAR) && text.match(START_WORD_CHAR) ? 1 : 0,
-            outTargetCol != null && outLine === outTargetLine ? outTargetCol-outCol : 0,
-        );
-        if (spaceCount) {
-            outData += ' '.repeat(spaceCount);
-            outCol += spaceCount;
+
+        const prevChar = outData.length ? outData[outData.length - 1] : ' ';
+
+        if (outCol === 1 && outTargetCol != null && outTargetCol > 1 && outLine === outTargetLine) {
+            outCol += outTargetCol - 1;
+            outData += '\t'.repeat(outTargetCol - 1)
+        } else {
+            let spaceCount = prevChar.match(IS_WORD_CHAR) && text.match(START_WORD_CHAR) ? 1 : 0;
+
+            if (whitespace === 'preserve') {
+                if (outTargetCol != null && outLine === outTargetLine) spaceCount = Math.max(spaceCount, outTargetCol-outCol);
+            } else {
+                if (!spaceCount) {
+                    const nextChar = text[0];
+                    if ("[(.!".indexOf(prevChar) < 0 && "[](,;):.".indexOf(nextChar) < 0) spaceCount = 1;
+                    else if (":=".indexOf(prevChar)>=0 && "([".indexOf(nextChar) >= 0) spaceCount = 1;
+                }
+
+            }
+
+            if (spaceCount) {
+                outCol += spaceCount;
+                outData += ' '.repeat(spaceCount);
+            }
         }
+        // Clear targets - these will be set again by the next read()
+        outTargetCol = outTargetLine = undefined;
         
+        if (inOutMap && outTargetPos != null && toMap) {
+            inOutMap.in.push(outTargetPos);
+            inOutMap.out.push(outData.length);
+            outTargetPos = undefined;
+        }
+
         outData += text;
         outCol += text.length;
 
-        // Determine if next emit might need a space
-        outTargetCol = outTargetLine = undefined;
+        return true;
     }
 
     /**
@@ -1134,8 +1192,8 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
             }
             inPos += result.length;
             WHITESPACE.lastIndex = inPos;
-            const whitespace = (WHITESPACE.exec(inData) || [""])[0];
-            inPos += whitespace.length;
+            const match = WHITESPACE.exec(inData);
+            if (match) inPos += match[0].length;
 
             if (results instanceof Array) results.push(result);
             else results = result;
@@ -1144,6 +1202,7 @@ export function tabscript(inData: string, {debug,recover,transformImport,stripTy
         if (debug) debugLog('read', toJson(results), 'as', typeof whats === 'string' ? whats : joinTokens(whats, ' + '));
 
         if (outTargetLine == null) {
+            outTargetPos = orgInPos;
             outTargetLine = inLine;
             outTargetCol = inCol;
         }
@@ -1199,6 +1258,6 @@ function toJson(v: any) {
     return JSON.stringify(v)
 }
 
-function joinTokens(tokens: any[], joinStr: string) {
-    return tokens.map(e => typeof e==='string' ? toJson(e) : e.toString() ).toSorted().join(joinStr);
+function joinTokens(tokens: {map: (callback: (value: any) => string) => string[]}, joinStr: string = '   '): string {
+    return tokens.map(e => typeof e==='string' ? toJson(e) : e instanceof Array ? joinTokens(e, ' + '): e.toString() ).toSorted().join(joinStr);
 }
