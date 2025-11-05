@@ -104,7 +104,7 @@ export function tabscript(inData: string, options: Options = {}): {
 
     parseMain();
     return {
-        code: outData,
+        code: outData + "\n",
         errors,
         map: inOutMap
     }
@@ -113,7 +113,7 @@ export function tabscript(inData: string, options: Options = {}): {
     ///// Recursive decent parser functions /////
 
     function parseMain() {
-        if (!stripTypes) emit('"use strict";');
+        if (stripTypes) emit('"use strict";');
         readNewline(); // optionally start with some newlines/comments
         while(inPos < inData.length) recoverErrors(() => {
             must(parseStatement) && must(readNewline());
@@ -511,8 +511,8 @@ export function tabscript(inData: string, options: Options = {}): {
     }
 
     function parseFuncType() {
-        if (!eat(':')) return false;
-        eat('asserts');
+        if (!eatType(':')) return false;
+        eatType('asserts');
         must(parseType);
         return true;
     }
@@ -542,7 +542,7 @@ export function tabscript(inData: string, options: Options = {}): {
         emit(match[0]);
 
         const saved = getOutState();
-        emit(':', false);
+        emitType(':');
         if (!parseType()) restoreState(saved);
 
         if (allowInit && eat('=')) {
@@ -671,7 +671,7 @@ export function tabscript(inData: string, options: Options = {}): {
         // (3+4)<test or sdf>x; // comparison
 
         const saved = Object.assign(getInState(), getOutState());
-        if (!eat('<')) return false;
+        if (!eatType('<')) return false;
 
         do { // single-run loop to allow easy breaking out
             if (!parseType()) break;
@@ -714,50 +714,50 @@ export function tabscript(inData: string, options: Options = {}): {
         else if (eatType(parseGroup, {open: '[', close: ']', next: ','}, parseType)) {} // array
         else if (allowFunction && parseFuncParams()) {
             if (read(':')) {
-                emit('=>');
+                emitType('=>');
                 must(parseType);
             }
             return true;
         }
-        else if (eat('(')) { // subtype surrounded by parentheses
+        else if (eatType('(')) { // subtype surrounded by parentheses
             must(parseType);
-            must(eat(')'));
+            must(eatType(')'));
         }
-        else if (!eat(NUMBER) && !eat(STRING)) {
+        else if (!eatType(NUMBER) && !eatType(STRING)) {
             if (required) must(false);
             return false;
         }
-        while (eat('[')) {
+        while (eatType('[')) {
             parseType(); // If present: indexing a type, otherwise indicating an array
-            must(eat(']'));
+            must(eatType(']'));
         }
         while (true) {
             if (read('or')) emitType('|');
             else if (read('and')) emitType('&');
-            else if (eat('is')) {}
+            else if (eatType('is')) {}
             else break;
             must(parseType(false)); // Don't allow function types in unions/intersections
         }
         if (eat('extends')) {
             // conditional type
             must(parseType);
-            must(eat('?'));
+            must(eatType('?'));
             must(parseType);
-            must(eat(':'));
+            must(eatType(':'));
             must(parseType);
         }
         return true;
     }
 
     function parseTypeObjectEntry() {
-        if (eat('[')) {
-            must(eat(IDENTIFIER));
-            must(eat(':'));
+        if (eatType('[')) {
+            must(eatType(IDENTIFIER));
+            must(eatType(':'));
             must(parseType);
-            must(eat(']'))
+            must(eatType(']'))
         }
-        else if (!eat(IDENTIFIER) && !eat(NUMBER) && !eat(STRING)) return false;
-        must(eat(':'));
+        else if (!eatType(IDENTIFIER) && !eatType(NUMBER) && !eatType(STRING)) return false;
+        must(eatType(':'));
         must(parseType);
         return true;
     }
@@ -913,7 +913,8 @@ export function tabscript(inData: string, options: Options = {}): {
                 if (readIndent()) level++;
                 if (readNewline() && level <= 0 && inPos > startPos) {
                     e.recoverSkip = inData.substring(startPos, inPos);
-                    emit(';');
+                    outTargetPos = outTargetCol = outTargetLine = undefined;
+                    if (outData[outData.length-1] !== ';') emit(';');
                     return true; // Fake success
                 }
                 if (readDedent()) level--;
@@ -1157,7 +1158,11 @@ export function tabscript(inData: string, options: Options = {}): {
             restoreState(saved);
             return result;
         }
-        return stripTypes ? read(...whats) : eat(...whats);
+        const savedOutTargetLine = outTargetLine;
+        if (stripTypes) outTargetLine == 0; // Prevent setting target line when this is being ignored.
+        const result = stripTypes ? read(...whats) : eat(...whats);
+        outTargetLine = savedOutTargetLine;
+        return result;
     }
 
     function read(what: (RegExp | string)): string | undefined;

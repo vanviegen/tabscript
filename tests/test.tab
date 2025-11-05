@@ -1,67 +1,81 @@
 
 	# test
 
-import A from 'abc'
-import {B, C as D} from "module2"
 import
-	B
-	C as D
-from "module2"
-import * as E from 'module3'
+	greet as getGreeting
+	answer
+from './typescript'
+
+import {ask as getQuestion, question} from './tabscript'
+
+import * as E from './tabscript'
 
 x : number = 3
-xx := undefined or string
-xx = "test" or undefined
+xx :: string or undefined = undefined
+xx = "test"
 y := "str"
 
 function a||
 	return 5
 
-async function a||
+async function a2
 	return await 5
 
-function b|arg: any, x: number or something| : number
+function b1|arg: any, x: number or Something| : number
 	return 5
 
-function b|
+function b2|
 	arg: any
-	x: number or something
+	x: number or Something
 | : number
 	return 5
 
-function b|
+function b3|
 	arg: any
-	x: number or something
+	x: number or Something
 |
 	return 5
 
-num :: 3
+num :: 3 or 4 = 3
 if num == 3
 	num = 4
 
+function assert|val: any|: asserts val
+	if !val
+		throw new Error("Value is not a string");
+
 # Strict equality checking by default
-assert& '3' != 3 # == translates to ===, != to !==
-assert& '3' =~ 3 # =~ translates to ==, !~ to !=
+three := Math.random() < 0.5 ? '3' : 3
+assert& three =~ 3 # =~ translates to ==, !~ to != (always true)
+assert& three != 3 # == translates to ===, != to !== (false in half the cases)
 
-if x > 3 x++
+n ::= 0
+if n > 3 n++
 
-if done(a,b) proceed()
+done := |a: number, b: number|: boolean
+	return a + b > 5
 
-if done(a,b)
+proceed := ||; # empty function
+rescue := ||;
+halt := ||;
+
+if done(n, 2) proceed()
+
+if done(n, 2)
 	proceed()
 
-if done& a b
+if done& n 2
 	proceed()
 
-if (done& a b) proceed()
+if (done& n 2) proceed()
 
 if done&
-	a
-	b
+	n
+	2
 ; # the semicolon separates the function call args from the if-body
 	proceed()
-else if something()
-	rescue& a b
+else if (done& n n)
+	rescue& # call without args
 else
 	halt()
 
@@ -82,7 +96,7 @@ type x =
 	z: number
 	x: (|arg1:number, arg2:string| : number) or string
 	g: number or string
-	a: |x| : number
+	a: |x: any| : number
 	b: |x:number| : void or string
 	c: || : void
 
@@ -94,7 +108,7 @@ type myFunc = |a: number, b: number| : number or string
 
 
 
-arr : number[] or undefined
+arr :: number[] or undefined
 sa : [number, string] = [3, "test"]
 
 arr?.[1] as number and {test: number}
@@ -129,13 +143,13 @@ i :: any = 3
 i = i=3, i==4
 
 for x: in arr console.log& x
-for x:number or string of arr console.log& x
+for x2: of arr or [] console.log& x2
 
 for i=0 i<10 i++ console.log& i
-for i:=0; i<10; i++; console.log& i
+for i::=0; i<10; i++; console.log& i
 
 abstract class X<T extends Record<number,any>> extends Array<T>
-	arg: number
+	arg: number = 123
 	constructor|...args: T[]| super(...args)
 	method|| : void ;
 	abstract abstractMethod|| : void
@@ -152,7 +166,7 @@ XXXX := class name<S, T>
 
 new XXXX<number,string>()
 
-text := `This ${lala& 2 (3 as number)} ${`works`}`
+text := `This ${sdf& 2 ('3' as any as number)} ${`works`}`
 
 enum E2
 	A
@@ -182,15 +196,25 @@ function templatedFunc<A>||: A or A[]
 # templated args:
 templatedFunc<number or string>
 templatedFunc<number or string>()
-(3+4)<test or sdf>(x)<A>()
+
+weirdFunc := <T>|x: number|
+	return <A>||
+		return new Date
+
+date := weirdFunc<number or string>(x)<Something>()
 
 # two comparisons:
-(3 + 4) < test or sdf > x
+(3 + 4) < num or x > 2
 
-test`string ${text as number} ${3 as number}`
+test := |str: TemplateStringsArray, ...args: any[]|
+	console.log& str.join(", ") args.join(", ")
+	return |arg: number|
+		console.log& arg
 
-test`string`(text as number)
+test`string ${x as number} ${3+4}`
+
+test`string`(x)
 
 # Binary logic
 
-result := x %bit_xor y %bit_and z %bit_or %bit_not 123 %shift_left 2
+result := x %bit_xor num %bit_and 42 %bit_or %bit_not 123 %shift_left 2

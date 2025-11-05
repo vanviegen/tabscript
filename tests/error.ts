@@ -1,0 +1,10 @@
+const x=y;
+const a=1;
+let b;
+a = 2;
+const c=(;
+a = 3;
+b;
+a = 4;
+123;
+a = 5;

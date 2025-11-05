@@ -1,27 +1,11 @@
-let x: number = 3 x;
-let y: number = 3;
-for(x=0;x<4) {
-    console log("test");
-    log("okay" as string);
-}
+x := y := 3 # FAIL the second := should 
+a := 1 # ok
+b :::= 4 # FAIL too many colons
+a = 2 # ok
+c := |123| 234 # FAIL literal instead of arg
+a = 3 # ok
+b c # FAIL missing operator
+a = 4 # ok
+123a # FAIL missing operator
+a = 5 # ok
 
-}
-
-class X<T> extends Array<T> {
-    export let i = 4;
-    lala(test: number): number {
-        let x: string = "a";
-        let y: string "b" "c"
-        let z: string = "c"
-    }
-
-    xx(a: number)() {};
-
-    {{
-
-    another(a: number) []
-
-    3+4 4
-
-    abstract sdf(): void;
-}
