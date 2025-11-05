@@ -115,6 +115,21 @@ Operators:
 - `=~` → `==`, `!~` → `!=` (explicit loose equality)
 - `%bit_or` → `|`, `%bit_and` → `&`, etc.
 
+Aberdeen UI Tags (when `--ui <library>` flag is set):
+- `<div>` → `A.e('div');` (create element)
+- `<div.my-class>` → `A.e('div').c('my-class');` (add class)
+- `<input type=text>` → `A.e('input').a('type','text');` (set attribute)
+- `<input value~${x}>` → `A.e('input').p('value',x);` (set property)
+- `<div color:red>` → `A.e('div').s('color','red');` (set style)
+- `<div margin-top:10px>` → `A.e('div').s('marginTop','10px');` (kebab-case → camelCase)
+- `<button>Submit` → `A.e('button').t('Submit');` (text content)
+- `<span>${x}` → `A.e('span').t(x);` (interpolated text)
+- `<div>` + indent → `A.e('div').f(function(){...});` (reactive block)
+- `<>Text ${x}` → `A.t('Text '+x);` (text without element)
+- `<>` + indent → `A.f(function(){...});` (reactive block without element)
+- `<.some-class>` → `A.c('some-class');` (class only, no element)
+- `<.class fontSize:32>` → `A.c('class').s('fontSize','32');` (properties without element)
+
 ## Testing Strategy
 
 Tests use diff-based comparison:

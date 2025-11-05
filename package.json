@@ -25,10 +25,11 @@
     },
     "scripts": {
         "build": "rm -rf dist dist-min ; tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts && chmod a+x dist/cli.js && mkdir -p dist-min && for f in dist/*.js; do terser --module --mangle module --keep-fnames --source-map -o dist-min/$(basename $f) -- $f; done && cp dist/*.d.ts dist-min",
-        "test": "npm run test1 && npm run test2 && npm run test3 && echo OK",
-        "test1": "./dist/cli.js tests/test.tab --output /dev/stdout | diff -u tests/test.ts -",
-        "test2": "./dist/cli.js tests/test.tab --strip-types --output /dev/stdout | diff -u tests/test.js -",
-        "test3": "./dist/cli.js tests/error.tab --recover --output /dev/stdout 2> /dev/null | diff -u tests/error.ts -",
+        "test": "npm run test-ts && npm run test-js && npm run test-er && npm run test-ui && echo OK",
+        "test-ts": "./dist/cli.js tests/test.tab --output /dev/stdout | diff -u tests/test.ts -",
+        "test-js": "./dist/cli.js tests/test.tab --strip-types --output /dev/stdout | diff -u tests/test.js -",
+        "test-er": "./dist/cli.js tests/error.tab --recover --output /dev/stdout 2> /dev/null | diff -u tests/error.ts -",
+        "test-ui": "./dist/cli.js tests/ui.tab --ui A --output /dev/stdout | diff -u tests/ui.ts -",
         "prepack": "npm run build && npm run test"
     },
     "repository": {
