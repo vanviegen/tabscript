@@ -10,9 +10,10 @@ TabScript is a transpiler that converts TabScript syntax to TypeScript or JavaSc
 
 Key features:
 - Indentation-based syntax (tabs only, no braces required)
-- Shorthand operators: `::` (const), `:` (let), `||` (function params), `&` (function calls)
+- Shorthand operators: `:` (const), `::` (let), `||` (function params), `&` (function calls)
 - Logical operators: `or` (||), `and` (&&), strict equality by default (`==` → `===`)
-- Binary operators with `%` prefix: `%bit_or`, `%bit_and`, `%bit_xor`, `%bit_not`, `%shift_left`, etc.
+- Binary operators with `%` prefix: `%bit_or`, `%bit_and`, `%bit_xor`, `%bit_not`, `%shift_left`, `%mod`, etc.
+- Optional UI tag syntax for frameworks like Aberdeen.js (with `--ui` flag)
 - Type stripping mode to transpile directly to JavaScript
 - Browser support for runtime transpilation
 - Error recovery mode for partial transpilation
@@ -32,95 +33,28 @@ npm test
 
 Manual CLI usage:
 ```bash
-./dist/cli.js <input.tab> [--output <file>] [--debug] [--recover] [--strip-types] [--whitespace preserve|pretty]
+./dist/cli.js <input.tab> [--output <file>] [--debug] [--recover] [--strip-types] [--whitespace preserve|pretty] [--ui <library>]
 ```
 
 ## Architecture
 
 ### Core Components
 
-**`src/tabscript.ts`** (1269 lines) - The main transpiler engine
-- Implements a recursive descent parser
-- Single-pass transpilation with position tracking
-- Maintains input→output offset mapping for sourcemaps
-- Key architecture:
-  - `parseMain()` - Entry point, handles file-level parsing
-  - `parseStatement()` - Parses statements (if/while/for/class/function/etc)
-  - `parseExpression()` - Parses expressions with operator precedence
-  - `parseType()` - Parses TypeScript type annotations
-  - `parseGroup()` - Generic parser for bracketed/indented constructs
-  - `read()/eat()` - Token consumption (eat also emits to output)
-  - `eatType()` - Like eat/read but suppressed in stripTypes mode
-  - `emit()` - Outputs to result, handles whitespace/newline syncing
-- State management: `getInState()/getOutState()/restoreState()` for backtracking
-- Indentation handling: `readIndent()/readDedent()/readNewline()` with pending queue
-- Error recovery: `recoverErrors()` wrapper for graceful failure
+**`src/tabscript.ts`** - Main transpiler engine implementing a recursive descent parser with single-pass transpilation and position tracking for sourcemap generation.
 
-**`src/cli.ts`** (72 lines) - Command-line interface
-- Argument parsing for --output, --debug, --recover, --strip-types, --whitespace
-- File I/O wrapper around tabscript() function
-- Defaults output to same filename with .ts extension
+**`src/cli.ts`** - Command-line interface with argument parsing for `--output`, `--debug`, `--recover`, `--strip-types`, `--whitespace`, and `--ui` flags.
 
-**`src/browser.ts`** (74 lines) - Browser runtime loader
-- Auto-transpiles `<script type="text/tabscript">` tags on DOMContentLoaded
-- Supports both inline scripts and `src` attribute
-- Implements `transformImport()` for module loading with object URLs
-- Maintains transform cache to avoid re-transpiling
+**`src/browser.ts`** - Browser runtime that auto-transpiles `<script type="text/tabscript">` tags, supports module loading via `transformImport()`, and maintains a transform cache.
 
-### Parsing Strategy
+### Parser Architecture
 
-The parser uses:
-1. **Backtracking with state save/restore** - Try parsing paths, restore on failure
-2. **Indent/dedent tokens** - Generated on-demand by readNewline(), queued in `indentsPending`
-3. **Position synchronization** - `outTargetPos/Line/Col` track where output should align with input
-4. **Whitespace preservation** - Default mode maintains input line/column positions in output
-5. **Type annotation handling** - eatType() suppresses output when stripTypes=true
-
-### Token Matching
-
-Regexes in sticky mode (flag `y`):
-- `WHITESPACE`, `IDENTIFIER`, `STRING`, `NUMBER`, `OPERATOR`, `BACKTICK_STRING`, `EXPRESSION_PREFIX`, `REGEXP`
-- The `descr()` wrapper adds toString() for better error messages
-- `matchOptions` Set tracks failed matches for error reporting
-
-### TabScript Syntax Patterns
-
-Variable declarations:
-- One colon = const, two colons = let
-- `x : number = 3` → `const x: number = 3`
-- `x :: number = 3` → `let x: number = 3`
-- `x := 3` → `const x = 3` (type inferred)
-- `x ::= 3` → `let x = 3` (type inferred)
-
-Functions:
-- `|a, b| a + b` → `(a, b) => a + b`
-- `function name|a| a + 1` → `function name(a) { return a + 1 }`
-- `async |x| await x` → `async (x) => await x`
-
-Function calls:
-- `func& arg1 arg2` → `func(arg1, arg2)` (indented args or space-separated)
-- `func& <newline><indent>arg1<newline>arg2<dedent>` → `func(arg1, arg2)`
-
-Operators:
-- `or` → `||`, `and` → `&&`
-- `==` → `===`, `!=` → `!==` (strict by default)
-- `=~` → `==`, `!~` → `!=` (explicit loose equality)
-- `%bit_or` → `|`, `%bit_and` → `&`, etc.
-
-Aberdeen UI Tags (when `--ui <library>` flag is set):
-- `<div>` → `A.e('div');` (create element)
-- `<div.my-class>` → `A.e('div').c('my-class');` (add class)
-- `<input type=text>` → `A.e('input').a('type','text');` (set attribute)
-- `<input value~${x}>` → `A.e('input').p('value',x);` (set property)
-- `<div color:red>` → `A.e('div').s('color','red');` (set style)
-- `<div margin-top:10px>` → `A.e('div').s('marginTop','10px');` (kebab-case → camelCase)
-- `<button>Submit` → `A.e('button').t('Submit');` (text content)
-- `<span>${x}` → `A.e('span').t(x);` (interpolated text)
-- `<div>` + indent → `A.e('div').f(function(){...});` (reactive block)
-- `<>Text ${x}` → `A.t('Text '+x);` (text without element)
-- `<>` + indent → `A.f(function(){...});` (reactive block without element)
-- `<.some-class>` → `A.c('some-class');` (class only, no element)
-- `<.class fontSize:32>` → `A.c('class').s('fontSize','32');` (properties without element)
+The parser (in `src/tabscript.ts`) uses:
+- **Recursive descent** - `parseMain()` → `parseStatement()` → `parseExpression()` → etc.
+- **Backtracking** - `getFullState()/getOutState()` + `restoreState()` for speculative parsing
+- **Indent/dedent tokens** - Generated on-demand by `readNewline()`, queued in `indentsPending`
+- **Position synchronization** - `outTargetPos/Line/Col` track input→output alignment for sourcemaps
+- **Token matching** - Regexes in sticky mode (`WHITESPACE`, `IDENTIFIER`, `STRING`, `NUMBER`, `OPERATOR`, etc.)
+- **Error recovery** - `recoverErrors()` wrapper for graceful partial transpilation
 
 ## Testing Strategy
 
@@ -148,19 +82,19 @@ When making any modifications to this project:
 
 
 When modifying the parser:
-1. Add new syntax to `tests/test.tab` and expected output to `tests/test.ts` and `tests/test.js` (or `ui.tab` when working on the <tag> syntax, or `error.tab` for error recovery).
-2. Update the appropriate `parse*()` function in tabscript.ts.
-   - Use `read()` to try to consume tokens (string literals or regexes predefined at top of file). It returns `undefined` if no match. Returns a string for the match if read() has one argument. Returns an array of string matches if read() has multiple arguments.
-   - Use `eat()` to try to consume tokens and emit them as output. Returns like `read()`.
-   - Use `peek()` to check for tokens without consuming them.
-   - Use `emit()` to add strings to the output. They'll be input->output mapped to the position of the first `read()` that hasn't be followed by an `emit` yet. Use the `outTargetPos/outTargetLine/outTargetCol` vars for more direct control over mapping.
-   - Use `const saved=getFullState()` + parse*() + optional `restoreState(saved)` for speculatively calling a parse function and backtracking on failure.
-   - Use `const saved=getOutState()` + parse*() + optional `restoreState(saved)` to call a parse function and (conditionally) discard its output.
-   - Parse functions names *must* start with `parse`, as on error the stack trace is used to identify which parse function failed.
-   - Parse functions must return something trueish on success. On failure they should return something falsey and the input and output state should be the same as before the call.
-   - The `must(..)` wrapper checks if its argument is trueish (or if it's function it calls it first). If not, it throws a parse error with context. It returns its value.
-3. Remember to handle both regular and type-stripping modes (using `eatType()` and `emitType()` and the `stripTypes` flag as needed).
-5. Test with `npm test` to verify both TypeScript and JavaScript output.
+1. Add new syntax to `tests/test.tab` and expected output to `tests/test.ts` and `tests/test.js` (or `tests/ui.tab`/`tests/ui.ts` for UI tag syntax, or `tests/error.tab`/`tests/error.ts` for error recovery).
+2. Update the appropriate `parse*()` function in `src/tabscript.ts`:
+   - **`read(pattern...)`** - Try to consume tokens without emitting. Returns `undefined` if no match, a string for single pattern, or array for multiple patterns.
+   - **`eat(pattern...)`** - Like `read()` but also emits matched tokens to output.
+   - **`eatType(pattern...)`** - Like `eat()` but suppressed when `stripTypes=true`.
+   - **`peek(pattern...)`** - Check for tokens without consuming.
+   - **`emit(str)`** - Add string to output with input→output position mapping.
+   - **`emitType(str)`** - Like `emit()` but suppressed when `stripTypes=true`.
+   - **Backtracking**: Use `const saved=getFullState()` then `restoreState(saved)` to try parse paths and rewind on failure.
+   - **Output discard**: Use `const saved=getOutState()` then `restoreState(saved)` to conditionally discard output.
+   - **Parse function contract**: Names must start with `parse`. Return truthy on success, falsy on failure. Leave state unchanged on failure.
+   - **`must(value)`** - Throws parse error if `value` is falsy (calls if function). Returns the value on success.
+3. Test with `npm test` to verify output matches expected TypeScript and JavaScript files.
 
 When debugging:
 - Use `--debug` flag to see token consumption
