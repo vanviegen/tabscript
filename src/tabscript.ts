@@ -1,3 +1,7 @@
+/**
+ * Error thrown when the TabScript parser encounters invalid syntax.
+ * Contains position information (line, column, offset) for the error location.
+ */
 export class ParseError extends Error {
     /** Input code that was skipped in an attempt to recover from the error. */
     public recoverSkip: string | undefined;
@@ -46,12 +50,21 @@ const REPLACE_OPERATORS: Record<string, string> = {
     "%unsigned_shift_right": '>>>',
 };
 
+/**
+ * Configuration options for the TabScript transpiler.
+ */
 export type Options = {
+    /** When `true`, logs each consumed token. If a function, calls that function instead of console.debug. */
     debug?: boolean | ((...args: string[]) => void),
+    /** When `true`, attempts to recover from errors and continue transpilation instead of throwing. */
     recover?: boolean,
+    /** When `true`, outputs JavaScript instead of TypeScript by stripping type annotations. */
     stripTypes?: boolean,
+    /** Function to transform import URIs during transpilation. */
     transformImport?: (uri: string) => string,
+    /** Output formatting mode: `"preserve"` maintains input alignment, `"pretty"` adds readable indentation. */
     whitespace?: 'preserve' | 'pretty',
+    /** Library name for UI tag syntax (e.g., `"A"` for Aberdeen.js). Enables JSX-like tag transpilation. */
     ui?: string,
 };
 
@@ -1564,3 +1577,9 @@ function toJson(v: any) {
 function joinTokens(tokens: {map: (callback: (value: any) => string) => string[]}, joinStr: string = '   '): string {
     return tokens.map(e => typeof e==='string' ? toJson(e) : e instanceof Array ? joinTokens(e, ' + '): e.toString() ).toSorted().join(joinStr);
 }
+
+/**
+ * Alias for the {@link tabscript} function.
+ * Transpiles TabScript code to TypeScript or JavaScript.
+ */
+export const transpile = tabscript;

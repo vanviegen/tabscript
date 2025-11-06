@@ -1,0 +1,36 @@
+{
+    "name": "TabScript",
+    "readme": "README.md",
+    "entryPoints": ["src/*.ts"],
+    "projectDocuments": ["docs/*.md"],
+    "excludeInternal": true,
+    "excludePrivate": true,
+    "includeVersion": true,
+    "router": "structure-dir",
+    "highlightLanguages": [
+        "typescript",
+        "javascript"
+    ],
+    "searchInComments": true,
+    "searchInDocuments": true,
+    "headings": {
+        "readme": false
+    },
+    "plugin": [],
+    "theme": "default",
+    "navigationLinks": {
+        "What's this?": "https://tabscript.text99.com/",
+        "Tutorial": "https://tabscript.text99.com/Tutorial/",
+        "GitHub": "https://github.com/vanviegen/tabscript"
+    },
+    "hideGenerator": true,
+    "hostedBaseUrl": "https://tabscript.text99.com/",
+    "useFirstParagraphOfCommentAsSummary": true,
+    "validation": {
+        "notDocumented": false,
+        "notExported": false
+    },
+    "treatWarningsAsErrors": false,
+    "out": "./dist-docs",
+    "customJs": "docs/live-code.js"
+}
