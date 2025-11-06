@@ -218,3 +218,8 @@ test`string`(x);
 
 
 const result=x^      num &        42 |       ~        123 <<          2;
+
+const isSet=x!=null;
+
+type Handler = (event: Event)=>void;
+type Mapper<T, U> = (input: T)=>U;

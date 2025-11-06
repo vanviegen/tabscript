@@ -37,7 +37,7 @@ const REPLACE_OPERATORS: Record<string, string> = {
     "!=": "!==",
     "=~": "==",
     "!~": "!=",
-    "%modulo": '%',
+    "%mod": '%',
     "%bit_or": '|',
     "%bit_and": '&',
     "%bit_xor": '^',
@@ -123,16 +123,19 @@ export function tabscript(inData: string, options: Options = {}): {
 
     function parseStatement() {
         // if (a==3) throw new Error();
+        const orgOutLen = outData.length;
         if (parseReturn() || parseThrow() || parseTypeDecl() || parseExport() || parseImport() || parseDoWhile()) {
-            emit(';');
         } else if (parseIfWhile() || parseFor() || parseTry() || parseFunction(true) || parseClass() || parseSwitch() || parseEnum() || parseDeclare()) {
-            // nop
+            return true; // Statement parsed, but no need for semicolon
         } else if (parseTag()) {
-            emit(';');
         } else if (parseVarDecl() || parseExpressionSeq()) {
-            emit(';');
         } else {
-            return false;
+            return false; // This is not a statement
+        }
+        // The check here is because when in stripTypes mode, some statements (such as type definitions) may not emit any output and therefore do not need a semicolon
+        if (outData.length > orgOutLen) emit(';');
+        else {
+            outTargetPos = outTargetLine = outTargetCol = undefined;
         }
         return true;
     }
@@ -324,14 +327,14 @@ export function tabscript(inData: string, options: Options = {}): {
     function parseTry() {
         // try { something(); } catch(e: any) { log(e); } finally { log('done'); }
         if (!eat('try')) return;
-        must(parseBlock);
+        must(parseBlock() || parseStatement());
         if (eat('catch')) {
             if (eat(IDENTIFIER)) {
                 if (eatType(':')) must(parseType);
             }
-            must(parseBlock);
+            must(parseBlock() || parseStatement());
         }
-        if (eat('finally')) must(parseBlock);
+        if (eat('finally')) must(parseBlock() || parseStatement());
         return true;
     }
 
@@ -612,10 +615,18 @@ export function tabscript(inData: string, options: Options = {}): {
             else break;
         }
 
-        if (eat('?')) {
-            must(parseExpression);
-            must(eat(':'));
-            must(parseExpression);
+        if (read('?')) {
+            const saved = getOutState();
+            emit('?');
+            if (parseExpression()) {
+                // a ? b : c
+                must(eat(':'));
+                must(parseExpression);
+            } else {
+                // isSet := a? 
+                restoreState(saved);
+                emit('!=null');
+            }
         }
         return true;
     }
@@ -716,7 +727,7 @@ export function tabscript(inData: string, options: Options = {}): {
         }
         else if (eatType(parseGroup, {open: '{', close: '}', next: ',', allowImplicit: true}, parseTypeObjectEntry)) {} // object
         else if (eatType(parseGroup, {open: '[', close: ']', next: ','}, parseType)) {} // array
-        else if (allowFunction && parseFuncParams()) {
+        else if (allowFunction && eatType(parseFuncParams)) {
             if (read(':')) {
                 emitType('=>');
                 must(parseType);
@@ -1163,7 +1174,7 @@ export function tabscript(inData: string, options: Options = {}): {
         restoreState(bodyOutState); // Failed to parse expression, revert output (not just when type stripping)
 
         // No body. So it's an overload signature. This is all type info, so should be stripped.
-        emit(';');
+        emitType(';');
         restoreState(typeOutState);
         return true;
     }

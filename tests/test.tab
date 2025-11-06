@@ -218,3 +218,8 @@ test`string`(x)
 # Binary logic
 
 result := x %bit_xor num %bit_and 42 %bit_or %bit_not 123 %shift_left 2
+
+isSet := x?
+
+type Handler = |event: Event|: void
+type Mapper<T, U> = |input: T|: U

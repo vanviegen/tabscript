@@ -96,9 +96,11 @@ Regexes in sticky mode (flag `y`):
 ### TabScript Syntax Patterns
 
 Variable declarations:
-- `x : number = 3` → `let x: number = 3`
-- `x :: number = 3` → `const x: number = 3`
+- One colon = const, two colons = let
+- `x : number = 3` → `const x: number = 3`
+- `x :: number = 3` → `let x: number = 3`
 - `x := 3` → `const x = 3` (type inferred)
+- `x ::= 3` → `let x = 3` (type inferred)
 
 Functions:
 - `|a, b| a + b` → `(a, b) => a + b`
