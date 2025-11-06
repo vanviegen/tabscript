@@ -128,7 +128,8 @@ export function tabscript(inData: string, options: Options = {}): {
 
     function parseMain() {
         if (stripTypes) emit('"use strict";');
-        readNewline(); // optionally start with some newlines/comments
+        read(''); // Consume leading comments
+        readNewline(); // Optionally start with some newlines/comments
         while(inPos < inData.length) recoverErrors(() => {
             must(parseStatement) && must(readNewline());
         });

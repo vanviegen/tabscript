@@ -25,8 +25,8 @@
     },
     "scripts": {
         "build": "rm -rf dist dist-min ; tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts && chmod a+x dist/cli.js && mkdir -p dist-min && for f in dist/*.js; do terser --module --mangle module --keep-fnames --source-map -o dist-min/$(basename $f) -- $f; done && cp dist/*.d.ts dist-min",
-        "build:docs": "npm run build && typedoc && rm -rf dist-docs/assets/tabscript && cp -r dist dist-docs/assets/tabscript",
-        "deploy-docs": "npm run build:docs && ssh frank@tabscript.text99.com 'mkdir -p webcentral-projects/tabscript.text99.com/static/' && rsync -avz --delete dist-docs/ frank@tabscript.text99.com:webcentral-projects/tabscript.text99.com/static/",
+        "build-docs": "npm run build && typedoc && rm -rf dist-docs/assets/tabscript && cp -r dist dist-docs/assets/tabscript",
+        "deploy-docs": "npm run build-docs && ssh frank@tabscript.vanviegen.net 'mkdir -p webcentral-projects/tabscript.vanviegen.net/static/' && rsync -avz --delete dist-docs/ frank@tabscript.vanviegen.net:webcentral-projects/tabscript.vanviegen.net/static/",
         "test": "npm run test-ts && npm run test-js && npm run test-er && npm run test-ui && echo OK",
         "test-ts": "./dist/cli.js tests/test.tab --output /dev/stdout | diff -u tests/test.ts -",
         "test-js": "./dist/cli.js tests/test.tab --strip-types --output /dev/stdout | diff -u tests/test.js -",

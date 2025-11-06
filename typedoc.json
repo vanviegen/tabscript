@@ -19,12 +19,12 @@
     "plugin": [],
     "theme": "default",
     "navigationLinks": {
-        "What's this?": "https://tabscript.text99.com/",
-        "Tutorial": "https://tabscript.text99.com/Tutorial/",
+        "What's this?": "https://tabscript.vanviegen.net/",
+        "Tutorial": "https://tabscript.vanviegen.net/Tutorial/",
         "GitHub": "https://github.com/vanviegen/tabscript"
     },
     "hideGenerator": true,
-    "hostedBaseUrl": "https://tabscript.text99.com/",
+    "hostedBaseUrl": "https://tabscript.vanviegen.net/",
     "useFirstParagraphOfCommentAsSummary": true,
     "validation": {
         "notDocumented": false,

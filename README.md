@@ -2,7 +2,7 @@
 
 TabScript is an alternate syntax for TypeScript. Think CoffeeScript for the modern age: indentation replaces braces, `and`/`or` replace `&&`/`||`, and common patterns get shorter syntax. It's purely a syntactic layer - all the semantics are TypeScript.
 
-**[📚 Read the full documentation and interactive tutorial](https://tabscript.text99.com/)**
+**[📚 Read the full documentation and interactive tutorial](https://tabscript.vanviegen.net/)**
 
 ## Quick Example
 
@@ -55,7 +55,7 @@ tabscript input.tab --strip-types --output output.js
 
 ## Learn More
 
-Visit **[tabscript.text99.com](https://tabscript.text99.com/)** for:
+Visit **[tabscript.vanviegen.net](https://tabscript.vanviegen.net/)** for:
 - Interactive tutorial with live examples
 - Complete language reference
 - API documentation

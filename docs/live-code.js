@@ -6,24 +6,6 @@ styleE.innerText = `
 .transpiler-container {
     margin: 1em 0;
 }
-.transpiler-options {
-    display: flex;
-    gap: 1em;
-    padding: 0.5em;
-    background-color: var(--color-background-secondary);
-    border: 1px solid #9096a2;
-    border-bottom: none;
-}
-.transpiler-options label {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    cursor: pointer;
-    font-size: 0.9em;
-}
-.transpiler-options input[type="checkbox"] {
-    cursor: pointer;
-}
 .transpiler-split {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -43,6 +25,30 @@ styleE.innerText = `
     background-color: var(--color-background-secondary);
     font-weight: bold;
     border-bottom: 1px solid #9096a2;
+    position: relative;
+}
+.transpiler-tabs {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: var(--color-background-secondary);
+    border-bottom: 1px solid #9096a2;
+}
+.transpiler-tab {
+    padding: 0.5em 1em;
+    cursor: pointer;
+    color: var(--color-text);
+    transition: background-color 0.2s;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+.transpiler-tab.active {
+    background-color: var(--color-background);
+    border-bottom: 3px solid var(--color-focus-outline);
+}
+.transpiler-tab:hover:not(.active) {
+    background-color: var(--color-background-active);
 }
 .transpiler-content {
     flex: 1;
@@ -73,21 +79,16 @@ styleE.innerText = `
     color: #ffa500;
     font-weight: bold;
 }
-.transpiler-edit-button {
-    position: absolute;
-    top: 0.5em;
-    right: 0.5em;
-    padding: 0.5em 1em;
-    background-color: var(--color-link);
-    color: white;
+.transpiler-button {
+    display: inline-block;
+    float: right;
+    margin-left: 0.5em;
+    color: #4c97f2;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.9em;
-    z-index: 10;
-}
-.transpiler-edit-button:hover {
-    opacity: 0.8;
+    background-color: transparent;
+    font-size: 0.85em;
 }
 `;
 document.head.appendChild(styleE);
@@ -121,7 +122,7 @@ async function transpileCode(code, options = {}) {
     }
 
     try {
-        const result = transpiler.transpile(code, {
+        const result = transpiler.tabscript(code, {
             stripTypes: options.stripTypes || false,
             recover: true,
             whitespace: 'pretty',
@@ -129,7 +130,7 @@ async function transpileCode(code, options = {}) {
         });
 
         return {
-            output: result.output,
+            output: result.code,
             errors: result.errors || []
         };
     } catch (error) {
@@ -145,21 +146,6 @@ function createTranspilerWidget(codeE, initialCode) {
     const container = document.createElement('div');
     container.className = 'transpiler-container';
 
-    // Options bar
-    const optionsE = document.createElement('div');
-    optionsE.className = 'transpiler-options';
-
-    const stripTypesCheckbox = document.createElement('input');
-    stripTypesCheckbox.type = 'checkbox';
-    stripTypesCheckbox.id = 'strip-types-' + Math.random();
-
-    const stripTypesLabel = document.createElement('label');
-    stripTypesLabel.htmlFor = stripTypesCheckbox.id;
-    stripTypesLabel.appendChild(stripTypesCheckbox);
-    stripTypesLabel.appendChild(document.createTextNode(' Output JavaScript (strip types)'));
-
-    optionsE.appendChild(stripTypesLabel);
-
     // Split view container
     const splitE = document.createElement('div');
     splitE.className = 'transpiler-split';
@@ -170,7 +156,19 @@ function createTranspilerWidget(codeE, initialCode) {
 
     const inputHeaderE = document.createElement('div');
     inputHeaderE.className = 'transpiler-header';
-    inputHeaderE.textContent = 'TabScript Input';
+    inputHeaderE.textContent = 'TabScript input';
+
+    // Edit button in input header
+    const editButtonE = document.createElement('button');
+    editButtonE.className = 'transpiler-button';
+    editButtonE.textContent = 'Edit';
+    inputHeaderE.appendChild(editButtonE);
+
+    // Copy button in input header
+    const copyButtonE = document.createElement('button');
+    copyButtonE.className = 'transpiler-button';
+    copyButtonE.textContent = 'Copy';
+    inputHeaderE.appendChild(copyButtonE);
 
     const inputContentE = document.createElement('div');
     inputContentE.className = 'transpiler-content';
@@ -182,11 +180,6 @@ function createTranspilerWidget(codeE, initialCode) {
     inputPreE.appendChild(inputCodeE);
     inputContentE.appendChild(inputPreE);
 
-    const editButtonE = document.createElement('button');
-    editButtonE.className = 'transpiler-edit-button';
-    editButtonE.textContent = 'Edit';
-    inputContentE.appendChild(editButtonE);
-
     inputPaneE.appendChild(inputHeaderE);
     inputPaneE.appendChild(inputContentE);
 
@@ -194,9 +187,20 @@ function createTranspilerWidget(codeE, initialCode) {
     const outputPaneE = document.createElement('div');
     outputPaneE.className = 'transpiler-pane';
 
-    const outputHeaderE = document.createElement('div');
-    outputHeaderE.className = 'transpiler-header';
-    outputHeaderE.textContent = 'TypeScript Output';
+    // Output tabs
+    const outputTabsE = document.createElement('ul');
+    outputTabsE.className = 'transpiler-tabs';
+
+    const tsTabE = document.createElement('li');
+    tsTabE.className = 'transpiler-tab active';
+    tsTabE.textContent = 'TypeScript';
+
+    const jsTabE = document.createElement('li');
+    jsTabE.className = 'transpiler-tab';
+    jsTabE.textContent = 'JavaScript';
+
+    outputTabsE.appendChild(tsTabE);
+    outputTabsE.appendChild(jsTabE);
 
     const outputContentE = document.createElement('div');
     outputContentE.className = 'transpiler-content';
@@ -207,7 +211,7 @@ function createTranspilerWidget(codeE, initialCode) {
     outputPreE.appendChild(outputCodeE);
     outputContentE.appendChild(outputPreE);
 
-    outputPaneE.appendChild(outputHeaderE);
+    outputPaneE.appendChild(outputTabsE);
     outputPaneE.appendChild(outputContentE);
 
     // Errors display
@@ -218,21 +222,29 @@ function createTranspilerWidget(codeE, initialCode) {
     splitE.appendChild(inputPaneE);
     splitE.appendChild(outputPaneE);
 
-    container.appendChild(optionsE);
     container.appendChild(splitE);
     container.appendChild(errorsE);
 
     let currentCode = initialCode;
     let editor = null;
     let updateTimeout = null;
+    let stripTypes = false;
 
     // Update transpiled output
     async function updateOutput() {
         const options = {
-            stripTypes: stripTypesCheckbox.checked
+            stripTypes: stripTypes
         };
 
-        outputHeaderE.textContent = options.stripTypes ? 'JavaScript Output' : 'TypeScript Output';
+        // Update tab active state
+        if (stripTypes) {
+            tsTabE.classList.remove('active');
+            jsTabE.classList.add('active');
+        } else {
+            jsTabE.classList.remove('active');
+            tsTabE.classList.add('active');
+        }
+
         outputCodeE.className = options.stripTypes ? 'language-javascript' : 'language-typescript';
 
         const result = await transpileCode(currentCode, options);
@@ -247,17 +259,28 @@ function createTranspilerWidget(codeE, initialCode) {
                 const errorE = document.createElement('div');
                 errorE.className = 'transpiler-error';
 
-                // Try to parse error with line:column format
-                const match = error.match(/^(.+?):(\d+):(\d+):\s*(.+)$/);
-                if (match) {
-                    const [, file, line, col, message] = match;
+                // Handle ParseError objects or string errors
+                if (error && typeof error === 'object' && 'line' in error && 'column' in error) {
+                    // ParseError object
                     const locationE = document.createElement('span');
                     locationE.className = 'transpiler-error-location';
-                    locationE.textContent = `Line ${line}, Column ${col}: `;
+                    locationE.textContent = `Line ${error.line}, Column ${error.column}: `;
                     errorE.appendChild(locationE);
-                    errorE.appendChild(document.createTextNode(message));
+                    errorE.appendChild(document.createTextNode(error.message || String(error)));
                 } else {
-                    errorE.textContent = error;
+                    // String error - try to parse line:column format
+                    const errorStr = String(error);
+                    const match = errorStr.match(/^(.+?):(\d+):(\d+):\s*(.+)$/);
+                    if (match) {
+                        const [, file, line, col, message] = match;
+                        const locationE = document.createElement('span');
+                        locationE.className = 'transpiler-error-location';
+                        locationE.textContent = `Line ${line}, Column ${col}: `;
+                        errorE.appendChild(locationE);
+                        errorE.appendChild(document.createTextNode(message));
+                    } else {
+                        errorE.textContent = errorStr;
+                    }
                 }
 
                 errorsE.appendChild(errorE);
@@ -275,8 +298,34 @@ function createTranspilerWidget(codeE, initialCode) {
     // Initial transpilation
     updateOutput();
 
-    // Handle strip types checkbox
-    stripTypesCheckbox.addEventListener('change', updateOutput);
+    // Handle tab clicks
+    tsTabE.addEventListener('click', () => {
+        if (stripTypes) {
+            stripTypes = false;
+            updateOutput();
+        }
+    });
+
+    jsTabE.addEventListener('click', () => {
+        if (!stripTypes) {
+            stripTypes = true;
+            updateOutput();
+        }
+    });
+
+    // Handle copy button
+    copyButtonE.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(currentCode);
+            const originalText = copyButtonE.textContent;
+            copyButtonE.textContent = '✓';
+            setTimeout(() => {
+                copyButtonE.textContent = originalText;
+            }, 1000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    });
 
     // Handle edit button
     editButtonE.addEventListener('click', async () => {
@@ -284,6 +333,7 @@ function createTranspilerWidget(codeE, initialCode) {
 
         inputPreE.innerHTML = '';
         editButtonE.style.display = 'none';
+        copyButtonE.style.display = 'none';
 
         editor = await loadEditor(inputPreE, 'tabscript', currentCode, (newCode) => {
             currentCode = newCode;
