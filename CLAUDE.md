@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to anyone working with code in this repository.
+
+**IMPORTANT**: Always follow the instructions with regard to the user of git worktree in the `Common Development Patterns` section.
 
 ## Project Overview
 
@@ -23,21 +25,9 @@ npm run build
 ```
 This compiles TypeScript to `dist/`, minifies to `dist-min/`, and makes `dist/cli.js` executable.
 
-Run all tests:
+Run all tests (a build is required first):
 ```bash
 npm test
-```
-
-Run individual tests:
-```bash
-# Test TypeScript output
-npm run test1
-
-# Test JavaScript output (type stripping)
-npm run test2
-
-# Test error recovery mode
-npm run test3
 ```
 
 Manual CLI usage:
@@ -140,24 +130,38 @@ Tests use diff-based comparison:
 - `tests/test.js` - Expected JavaScript output (--strip-types)
 - `tests/error.tab` - Input with intentional errors
 - `tests/error.ts` - Expected recovery output (--recover mode)
-
-The build must complete successfully before tests run (via `prepack` hook).
+- `tests/ui.tab` - Input with Aberdeen UI tags
+- `tests/ui.ts` - Expected output with Aberdeen UI transpilation
 
 ## Common Development Patterns
 
-When modifying the parser:
-1. Add new syntax to `tests/test.tab` and expected output to `tests/test.ts`
-2. Update the appropriate `parse*()` function in tabscript.ts
-3. Use `must()` for mandatory tokens, plain `eat()`/`read()` for optional
-4. Remember to handle both regular and type-stripping modes
-5. Test with `npm test` to verify both TypeScript and JavaScript output
+When making any modifications to this project:
+1. Come up with a feature branch name and check that the branch doesn't exist yet.
+2. Create a new worktree in `.trees`: `git worktree add -B my-feature .trees/my-feature`
+3. Do all your work in that worktree.
+4. After every change, make a commit with a *short* descriptive message. The summary you output to the user about your work can be equally brief.
+5. When done, propose to the user to merge the feature into main.
+6. If the user accepts, combine your commits into one using `git reset --soft $(git merge-base HEAD main) && git commit -m "Your squashed commit message"`, providing a more thorough (but still not overly long!) commit message for all of the work (possibly using a HEREDOC).
+7. Do a `git rebase main` and resolve and commit any conflicts.
+8. Fast-forward merge into main (by moving into the main worktree and doing `git merge -ff my-feature`).
+9. Remove the worktree and the branch.
 
-When adding new operators:
-- Add regex pattern to token definitions (lines 17-31)
-- Add entry to `REPLACE_OPERATORS` if it needs translation (lines 33-47)
-- Update `parseExpression()` or relevant parser function
+
+When modifying the parser:
+1. Add new syntax to `tests/test.tab` and expected output to `tests/test.ts` and `tests/test.js` (or `ui.tab` when working on the <tag> syntax, or `error.tab` for error recovery).
+2. Update the appropriate `parse*()` function in tabscript.ts.
+   - Use `read()` to try to consume tokens (string literals or regexes predefined at top of file). It returns `undefined` if no match. Returns a string for the match if read() has one argument. Returns an array of string matches if read() has multiple arguments.
+   - Use `eat()` to try to consume tokens and emit them as output. Returns like `read()`.
+   - Use `peek()` to check for tokens without consuming them.
+   - Use `emit()` to add strings to the output. They'll be input->output mapped to the position of the first `read()` that hasn't be followed by an `emit` yet. Use the `outTargetPos/outTargetLine/outTargetCol` vars for more direct control over mapping.
+   - Use `const saved=getFullState()` + parse*() + optional `restoreState(saved)` for speculatively calling a parse function and backtracking on failure.
+   - Use `const saved=getOutState()` + parse*() + optional `restoreState(saved)` to call a parse function and (conditionally) discard its output.
+   - Parse functions names *must* start with `parse`, as on error the stack trace is used to identify which parse function failed.
+   - Parse functions must return something trueish on success. On failure they should return something falsey and the input and output state should be the same as before the call.
+   - The `must(..)` wrapper checks if its argument is trueish (or if it's function it calls it first). If not, it throws a parse error with context. It returns its value.
+3. Remember to handle both regular and type-stripping modes (using `eatType()` and `emitType()` and the `stripTypes` flag as needed).
+5. Test with `npm test` to verify both TypeScript and JavaScript output.
 
 When debugging:
 - Use `--debug` flag to see token consumption
 - Check `matchOptions` in error messages to see what parser expected
-- Use state save/restore pattern for lookahead without consuming tokens

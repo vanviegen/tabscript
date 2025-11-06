@@ -246,7 +246,7 @@ export function tabscript(inData: string, options: Options = {}): {
         if (!eat('for')) return false;
         emit('(', false);
 
-        const saved = Object.assign(getInState(), getOutState());
+        const saved = getFullState();
 
         if ((parseVarDecl(false) || eat(IDENTIFIER)) && (eat('of') || eat('in'))) {
             // for x in/of y
@@ -363,6 +363,10 @@ export function tabscript(inData: string, options: Options = {}): {
             outTargetLine, 
             outTargetCol
         };
+    }
+
+    function getFullState() {
+        return Object.assign(getInState(), getOutState());
     }
 
     function restoreState(state: any) {
@@ -685,7 +689,7 @@ export function tabscript(inData: string, options: Options = {}): {
         // (3+4)<test or sdf>(x); // template type
         // (3+4)<test or sdf>x; // comparison
 
-        const saved = Object.assign(getInState(), getOutState());
+        const saved = getFullState();
         if (!eatType('<')) return false;
 
         do { // single-run loop to allow easy breaking out
@@ -1008,7 +1012,7 @@ export function tabscript(inData: string, options: Options = {}): {
 
     function parseTagTextContent(needsDot: boolean, isChained: boolean, hasElement: boolean) {
         // Check if there's text content on the same line
-        const saved = Object.assign(getInState(), getOutState());
+        const saved = getFullState();
 
         // Peek ahead to see if there's non-whitespace before newline
         let hasContent = false;
