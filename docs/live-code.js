@@ -12,6 +12,10 @@ styleE.innerText = `
     gap: 0;
     border: 1px solid #9096a2;
 }
+.transpiler-split.edit-mode,
+.transpiler-split.stacked {
+    grid-template-columns: 1fr;
+}
 .transpiler-pane {
     display: flex;
     flex-direction: column;
@@ -19,6 +23,20 @@ styleE.innerText = `
 }
 .transpiler-pane:first-child {
     border-right: 1px solid #9096a2;
+}
+.transpiler-split.edit-mode .transpiler-pane:first-child,
+.transpiler-split.stacked .transpiler-pane:first-child {
+    border-right: none;
+    border-bottom: 1px solid #9096a2;
+}
+@media (max-width: 1599px) {
+    .transpiler-split {
+        grid-template-columns: 1fr;
+    }
+    .transpiler-pane:first-child {
+        border-right: none;
+        border-bottom: 1px solid #9096a2;
+    }
 }
 .transpiler-header {
     padding: 0.5em 1em;
@@ -335,6 +353,9 @@ function createTranspilerWidget(codeE, initialCode) {
         editButtonE.style.display = 'none';
         copyButtonE.style.display = 'none';
 
+        // Switch to stacked layout in edit mode
+        splitE.classList.add('edit-mode');
+
         editor = await loadEditor(inputPreE, 'tabscript', currentCode, (newCode) => {
             currentCode = newCode;
             clearTimeout(updateTimeout);
@@ -380,15 +401,30 @@ async function loadEditor(containerE, language, code, onChange) {
     });
 
     // Auto-resize editor
+    let isResizing = false;
     const resizeObserver = new ResizeObserver(() => {
-        editor.layout();
+        if (!isResizing) {
+            editor.layout();
+        }
     });
     resizeObserver.observe(containerE);
 
     editor.onDidContentSizeChange(() => {
+        if (isResizing) return;
+
         const height = Math.max(200, Math.min(600, editor.getContentHeight()));
-        containerE.style.height = height + 'px';
-        editor.layout();
+        const currentHeight = containerE.style.height;
+        const newHeight = height + 'px';
+
+        if (currentHeight !== newHeight) {
+            isResizing = true;
+            containerE.style.height = newHeight;
+            editor.layout();
+            // Use setTimeout to prevent immediate recursive calls
+            setTimeout(() => {
+                isResizing = false;
+            }, 10);
+        }
     });
 
     // Add change handler

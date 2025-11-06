@@ -36,6 +36,20 @@ Manual CLI usage:
 ./dist/cli.js <input.tab> [--output <file>] [--debug] [--recover] [--strip-types] [--whitespace preserve|pretty] [--ui <library>]
 ```
 
+Build documentation:
+```bash
+npm run build-docs
+```
+This builds the project, generates documentation using TypeDoc (configured in `typedoc.json`), and copies the transpiler to `dist-docs/assets/tabscript/` for use by the live code editor. The documentation includes:
+- API documentation from JSDoc comments in source files
+- Tutorial and other markdown files from `docs/` directory
+- Live interactive code examples powered by `docs/live-code.js` (injected via TypeDoc's `customJs` option)
+
+Deploy documentation to production:
+```bash
+npm run deploy-docs
+```
+
 ## Architecture
 
 ### Core Components
