@@ -401,29 +401,24 @@ async function loadEditor(containerE, language, code, onChange) {
     });
 
     // Auto-resize editor
-    let isResizing = false;
+    // Track the last height we set to prevent infinite loops
+    let lastSetHeight = null;
+
     const resizeObserver = new ResizeObserver(() => {
-        if (!isResizing) {
-            editor.layout();
-        }
+        editor.layout();
     });
     resizeObserver.observe(containerE);
 
     editor.onDidContentSizeChange(() => {
-        if (isResizing) return;
-
-        const height = Math.max(200, Math.min(600, editor.getContentHeight()));
-        const currentHeight = containerE.style.height;
+        const contentHeight = editor.getContentHeight();
+        const height = Math.max(200, Math.min(600, contentHeight));
         const newHeight = height + 'px';
 
-        if (currentHeight !== newHeight) {
-            isResizing = true;
+        // Only update if height actually changed from what we last set
+        if (lastSetHeight !== newHeight) {
+            lastSetHeight = newHeight;
             containerE.style.height = newHeight;
-            editor.layout();
-            // Use setTimeout to prevent immediate recursive calls
-            setTimeout(() => {
-                isResizing = false;
-            }, 10);
+            // ResizeObserver will handle calling layout()
         }
     });
 
