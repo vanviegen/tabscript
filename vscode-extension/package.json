@@ -1,0 +1,86 @@
+{
+  "name": "tabscript",
+  "displayName": "TabScript",
+  "description": "TabScript language support with syntax highlighting and IntelliSense",
+  "version": "0.1.0",
+  "publisher": "tabscript",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/tabscript-vscode"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "tabscript",
+    "typescript",
+    "language"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "tabscript",
+        "aliases": [
+          "TabScript",
+          "tabscript"
+        ],
+        "extensions": [
+          ".tab"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icon.png",
+          "dark": "./icon.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tabscript",
+        "scopeName": "source.tabscript",
+        "path": "./syntaxes/tabscript.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "TabScript",
+      "properties": {
+        "tabscript.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11",
+    "typescript": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.0"
+  }
+}

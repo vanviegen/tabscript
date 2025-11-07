@@ -1,0 +1,54 @@
+# TabScript UI Tags Example
+# This demonstrates the UI tag syntax for Aberdeen.js
+
+# Basic elements
+<div>
+<span>
+<button>
+
+# Elements with CSS classes
+<div.container>
+<div.row.active>
+<button.btn.btn-primary>
+
+# Attributes
+<input type=text>
+<input placeholder=Name>
+<a href=https://example.com>
+
+# Property binding
+<input value~${username}>
+<div className~${activeClass}>
+
+# Inline styles
+<div color:red>
+<div margin-top:10px>
+<span background-color:#fff>
+
+# Text content
+<button>Submit
+<h1>Welcome
+<span>Count: ${count}
+
+# Chained inline tags
+<div><span><b>Bold text
+<ul><li>Item 1
+
+# Empty tag (text/reactive block without element)
+<>Hello world
+
+# Modifier-only tags (work on current element)
+<.my-class>
+<color:blue .item>
+
+# Dynamic tag name
+tag := "div"
+<${tag}>Content
+
+# Complex example with multiple features
+<div.card.shadow>
+	<div.card-header background:blue>
+		<h2>Title
+	<div.card-body>
+		<input type=text value~${name}>
+		<button.btn>Save

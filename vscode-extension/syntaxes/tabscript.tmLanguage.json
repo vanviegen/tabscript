@@ -1,0 +1,350 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "TabScript",
+  "scopeName": "source.tabscript",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#ui-tags" },
+    { "include": "#keywords" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#operators" },
+    { "include": "#functions" },
+    { "include": "#types" },
+    { "include": "#variables" },
+    { "include": "#constants" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.tabscript",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.tabscript",
+          "match": "\\b(if|else|switch|case|for|while|do|break|continue|return|throw|try|catch|finally|yield|await)\\b"
+        },
+        {
+          "name": "keyword.control.export.tabscript",
+          "match": "\\b(export|default)\\b"
+        },
+        {
+          "name": "keyword.control.import.tabscript",
+          "match": "\\b(import|from|as)\\b"
+        },
+        {
+          "name": "storage.type.tabscript",
+          "match": "\\b(const|let|var|function|class|interface|type|enum|namespace|module|declare|abstract|async)\\b"
+        },
+        {
+          "name": "storage.modifier.tabscript",
+          "match": "\\b(public|private|protected|static|readonly|get|set|new|extends|implements)\\b"
+        },
+        {
+          "name": "keyword.other.tabscript",
+          "match": "\\b(this|super|typeof|instanceof|in|of|void|delete)\\b"
+        },
+        {
+          "name": "constant.language.tabscript",
+          "match": "\\b(true|false|null|undefined|NaN|Infinity)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.template.tabscript",
+          "begin": "`",
+          "end": "`",
+          "patterns": [
+            {
+              "name": "meta.template.expression.tabscript",
+              "begin": "\\$\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.begin.tabscript" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.end.tabscript" }
+              },
+              "patterns": [
+                { "include": "$self" }
+              ]
+            },
+            {
+              "name": "constant.character.escape.tabscript",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.double.tabscript",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.tabscript",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.tabscript",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.tabscript",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.tabscript",
+          "match": "\\b0[xX][0-9a-fA-F]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.tabscript",
+          "match": "\\b0[bB][01]+\\b"
+        },
+        {
+          "name": "constant.numeric.octal.tabscript",
+          "match": "\\b0[oO][0-7]+\\b"
+        },
+        {
+          "name": "constant.numeric.decimal.tabscript",
+          "match": "\\b\\d+\\.?\\d*([eE][+-]?\\d+)?\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.tabscript",
+          "match": ":=|::=|="
+        },
+        {
+          "name": "keyword.operator.bitwise.tabscript",
+          "match": "~bit_xor|~bit_and|~bit_or|~bit_not|~shift_left|~shift_right"
+        },
+        {
+          "name": "keyword.operator.logical.tabscript",
+          "match": "\\b(and|or|not)\\b|&&|\\|\\||!"
+        },
+        {
+          "name": "keyword.operator.comparison.tabscript",
+          "match": "===|!==|==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.arithmetic.tabscript",
+          "match": "\\+\\+|--|\\+|-|\\*|/|%|\\*\\*"
+        },
+        {
+          "name": "keyword.operator.type.tabscript",
+          "match": "\\b(as)\\b|:"
+        },
+        {
+          "name": "keyword.operator.optional.tabscript",
+          "match": "\\?\\.|\\?\\?|\\?"
+        },
+        {
+          "name": "keyword.operator.spread.tabscript",
+          "match": "\\.\\.\\."
+        },
+        {
+          "name": "keyword.operator.arrow.tabscript",
+          "match": "=>"
+        },
+        {
+          "name": "punctuation.accessor.tabscript",
+          "match": "\\."
+        },
+        {
+          "name": "keyword.operator.function-call.tabscript",
+          "match": "&(?=\\s)"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "meta.function.tabscript",
+          "begin": "\\b(function|async\\s+function)\\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(\\|)",
+          "end": "(\\|)",
+          "beginCaptures": {
+            "1": { "name": "storage.type.function.tabscript" },
+            "2": { "name": "entity.name.function.tabscript" },
+            "3": { "name": "punctuation.definition.parameters.begin.tabscript" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.parameters.end.tabscript" }
+          },
+          "patterns": [
+            { "include": "#function-parameters" }
+          ]
+        },
+        {
+          "name": "meta.arrow-function.tabscript",
+          "begin": "(\\|)",
+          "end": "(\\|)",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.parameters.begin.tabscript" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.parameters.end.tabscript" }
+          },
+          "patterns": [
+            { "include": "#function-parameters" }
+          ]
+        },
+        {
+          "name": "entity.name.function.tabscript",
+          "match": "\\b([a-zA-Z_$][a-zA-Z0-9_$]*)(?=\\s*[&(])"
+        }
+      ]
+    },
+    "function-parameters": {
+      "patterns": [
+        {
+          "name": "variable.parameter.tabscript",
+          "match": "\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\b"
+        },
+        {
+          "name": "keyword.operator.rest.tabscript",
+          "match": "\\.\\.\\."
+        },
+        { "include": "#types" },
+        { "include": "#operators" }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.primitive.tabscript",
+          "match": "\\b(string|number|boolean|symbol|any|void|never|unknown|bigint|object)\\b"
+        },
+        {
+          "name": "entity.name.type.tabscript",
+          "match": "\\b[A-Z][a-zA-Z0-9_$]*\\b"
+        },
+        {
+          "name": "meta.type.annotation.tabscript",
+          "begin": "<",
+          "end": ">",
+          "patterns": [
+            { "include": "#types" },
+            { "include": "#operators" }
+          ]
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.constant.tabscript",
+          "match": "\\b[A-Z_][A-Z0-9_]*\\b"
+        },
+        {
+          "name": "variable.other.readwrite.tabscript",
+          "match": "\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.tabscript",
+          "match": "\\b(true|false|null|undefined|NaN|Infinity)\\b"
+        }
+      ]
+    },
+    "ui-tags": {
+      "patterns": [
+        {
+          "name": "meta.tag.ui.tabscript",
+          "begin": "<(\\$\\{)",
+          "end": "(\\})",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.tag.begin.tabscript" },
+            "1": { "name": "punctuation.definition.template-expression.begin.tabscript" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.template-expression.end.tabscript" }
+          },
+          "patterns": [
+            { "include": "$self" }
+          ],
+          "contentName": "meta.embedded.expression.tabscript"
+        },
+        {
+          "name": "meta.tag.ui.tabscript",
+          "begin": "<([a-zA-Z][a-zA-Z0-9]*)?",
+          "end": ">",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.tag.begin.tabscript" },
+            "1": { "name": "entity.name.tag.tabscript" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.tag.end.tabscript" }
+          },
+          "patterns": [
+            {
+              "name": "entity.other.attribute-name.class.tabscript",
+              "match": "\\.[a-zA-Z_-][a-zA-Z0-9_-]*"
+            },
+            {
+              "name": "meta.attribute.style.tabscript",
+              "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(:)([^\\s>]+)",
+              "captures": {
+                "1": { "name": "entity.other.attribute-name.style.tabscript" },
+                "2": { "name": "punctuation.separator.key-value.tabscript" },
+                "3": { "name": "string.unquoted.tabscript" }
+              }
+            },
+            {
+              "name": "meta.attribute.property.tabscript",
+              "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(~)([^\\s>]+)",
+              "captures": {
+                "1": { "name": "entity.other.attribute-name.tabscript" },
+                "2": { "name": "keyword.operator.property.tabscript" },
+                "3": { "name": "string.unquoted.tabscript" }
+              }
+            },
+            {
+              "name": "meta.attribute.tabscript",
+              "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(=)([^\\s>]+)",
+              "captures": {
+                "1": { "name": "entity.other.attribute-name.tabscript" },
+                "2": { "name": "punctuation.separator.key-value.tabscript" },
+                "3": { "name": "string.unquoted.tabscript" }
+              }
+            },
+            {
+              "name": "meta.embedded.expression.tabscript",
+              "begin": "\\$\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.begin.tabscript" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.end.tabscript" }
+              },
+              "patterns": [
+                { "include": "$self" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
