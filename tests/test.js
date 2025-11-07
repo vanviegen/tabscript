@@ -1,7 +1,7 @@
-"use strict";
+"use strict";import{
 
 
-import{
+
 	greet as getGreeting,
 	answer,}
 from './typescript';
