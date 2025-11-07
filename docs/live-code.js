@@ -20,6 +20,7 @@ styleE.innerText = `
     display: flex;
     flex-direction: column;
     min-height: 200px;
+    overflow: hidden;
 }
 .transpiler-pane:first-child {
     border-right: 1px solid #9096a2;
@@ -349,14 +350,14 @@ function createTranspilerWidget(codeE, initialCode) {
     editButtonE.addEventListener('click', async () => {
         if (editor) return; // Already editing
 
-        inputPreE.innerHTML = '';
+        inputPreE.remove();
         editButtonE.style.display = 'none';
         copyButtonE.style.display = 'none';
 
         // Switch to stacked layout in edit mode
         splitE.classList.add('edit-mode');
 
-        editor = await loadEditor(inputPreE, 'tabscript', currentCode, (newCode) => {
+        editor = await loadEditor(inputContentE, 'tabscript', currentCode, (newCode) => {
             currentCode = newCode;
             clearTimeout(updateTimeout);
             updateTimeout = setTimeout(updateOutput, 300);
@@ -371,13 +372,13 @@ async function loadEditor(containerE, language, code, onChange) {
     if (!window.monaco) {
         await new Promise(resolve => {
             const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js';
+            script.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.54.0/min/vs/loader.min.js';
             script.onload = resolve;
             document.head.appendChild(script);
         });
 
         await new Promise(resolve => {
-            require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs' }});
+            require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.54.0/min/vs' }});
             require(['vs/editor/editor.main'], resolve);
         });
     }
@@ -405,9 +406,10 @@ async function loadEditor(containerE, language, code, onChange) {
     let lastSetHeight = null;
 
     const resizeObserver = new ResizeObserver(() => {
+        console.log('resize')
         editor.layout();
     });
-    resizeObserver.observe(containerE);
+    resizeObserver.observe(document.body);
 
     editor.onDidContentSizeChange(() => {
         const contentHeight = editor.getContentHeight();
