@@ -6,6 +6,43 @@ title: TabScript Tutorial
 
 TabScript is an alternate syntax for TypeScript that replaces braces with indentation and introduces shorthand operators while maintaining full TypeScript compatibility. The compiler outputs clean TypeScript or JavaScript.
 
+## Getting Started
+
+Let's start with a complete example that showcases TabScript's clean syntax:
+
+```tabscript
+# A simple task manager with filtering and statistics
+
+# Arrow functions use || for parameters, := for const
+filterTasks := |tasks, status|
+	# Use 'and'/'or' instead of &&/||
+	tasks.filter |t| t.status == status and t.priority > 0
+
+# Single expression functions are super clean
+getHighPriority := |tasks| tasks.filter |t| t.priority >= 8
+
+# Functions with indented blocks - no braces needed!
+function printTaskStats|tasks|
+	completed := filterTasks& tasks "done"
+	pending := filterTasks& tasks "pending"
+
+	# for..of loops infer const with ':'
+	for task: of getHighPriority(pending)
+		console.log("HIGH PRIORITY:", task.title)
+
+	# String interpolation and readable conditionals
+	if completed.length > 0
+		console.log(`Completed ${completed.length} tasks!`)
+```
+
+Notice how TabScript removes visual clutter:
+- **No braces** - indentation defines blocks
+- **`:` and `::`** - declare const and let variables
+- **`||` syntax** - cleaner function parameters
+- **`&` operator** - space-separated function arguments
+- **`and`/`or`** - more readable than `&&`/`||`
+- **`==` is strict** - safe by default (transpiles to `===`)
+
 ## Variables
 
 Variable declarations use colons: a single `:` for `const` and a double `::` for `let`.

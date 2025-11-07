@@ -7,24 +7,31 @@ TabScript is an alternate syntax for TypeScript. Think CoffeeScript for the mode
 ## Quick Example
 
 ```
-# TabScript
-add := |a, b| a + b
+# TabScript - Process and filter user data
+processUsers := |users|
+	active := users.filter |u| u.active and u.age >= 18
 
-for item: of items
-	if item.value > 0
-		console.log(item.name)
+	for user: of active
+		if user.role == "admin" or user.permissions.includes("write")
+			console.log("Granting access:", user.name)
+
+greet := |name| "Hello, " + name
 ```
 
 Transpiles to clean TypeScript:
 
 ```typescript
-const add = (a, b) => a + b;
+const processUsers = (users) => {
+	const active = users.filter((u) => u.active && u.age >= 18);
 
-for (const item of items) {
-	if (item.value > 0) {
-		console.log(item.name);
+	for (const user of active) {
+		if (user.role === "admin" || user.permissions.includes("write")) {
+			console.log("Granting access:", user.name);
+		}
 	}
-}
+};
+
+const greet = (name) => "Hello, " + name;
 ```
 
 ## Installation
