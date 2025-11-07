@@ -27,6 +27,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as ts from 'typescript';
 
+// Import tabscript transpiler from parent project
+const tabscript = require('../../dist/tabscript.js').tabscript;
+
 // Create a connection for the server
 const connection = createConnection(ProposedFeatures.all);
 
@@ -182,74 +185,10 @@ function initializeTypeScriptService() {
   tsLanguageService = ts.createLanguageService(servicesHost, ts.createDocumentRegistry());
 }
 
-// Find the tabscript module in the workspace
-function findTabScriptModule(workspaceFolders: string[]): string | null {
-  for (const folder of workspaceFolders) {
-    const tabscriptPath = path.join(folder, 'node_modules', 'tabscript', 'dist', 'tabscript.js');
-    if (fs.existsSync(tabscriptPath)) {
-      return tabscriptPath;
-    }
-  }
-  return null;
-}
-
-// Load the tabscript transpiler
-let tabscriptModule: any = null;
-let tabscriptWarningShown = false;
-
-function showTabScriptWarning(message: string): void {
-  if (!tabscriptWarningShown) {
-    connection.window.showWarningMessage(`TabScript: ${message}. Only syntax highlighting is available.`);
-    tabscriptWarningShown = true;
-  }
-}
-
-async function loadTabScriptModule(document: TextDocument): Promise<boolean> {
-  if (tabscriptModule) return true;
-
-  const workspaceFolders = await connection.workspace.getWorkspaceFolders();
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    showTabScriptWarning('No workspace folder found');
-    return false;
-  }
-
-  const folders = workspaceFolders.map(f => {
-    const uri = f.uri;
-    // Handle file:// URIs
-    if (uri.startsWith('file://')) {
-      return decodeURIComponent(uri.substring(7));
-    }
-    return uri;
-  });
-
-  const tabscriptPath = findTabScriptModule(folders);
-
-  if (!tabscriptPath) {
-    showTabScriptWarning('tabscript module not found in node_modules. Please install tabscript in your project');
-    return false;
-  }
-
-  try {
-    // Clear require cache to allow reloading
-    delete require.cache[require.resolve(tabscriptPath)];
-    tabscriptModule = require(tabscriptPath);
-    connection.console.log(`Loaded TabScript from: ${tabscriptPath}`);
-    return true;
-  } catch (error) {
-    connection.window.showErrorMessage(
-      `TabScript: Failed to load tabscript module: ${error}`
-    );
-    return false;
-  }
-}
 
 // Core transpilation function - called by both document and file-based transpilation
 function doTranspile(content: string, uri: string, version: number): TranspileCache {
-  if (!tabscriptModule) {
-    throw new Error('TabScript module not loaded');
-  }
-
-  const transpileResult = tabscriptModule.tabscript(content, {
+  const transpileResult = tabscript(content, {
     recover: true,
     whitespace: 'pretty'
   });
@@ -278,27 +217,18 @@ function doTranspile(content: string, uri: string, version: number): TranspileCa
 // Transpile TabScript file by filesystem path (synchronous, for on-demand loading)
 function transpileTabScriptFile(tabFilePath: string): void {
   const tabUri = 'file://' + tabFilePath;
-  
-  if (transpileCache.has(tabUri) || !tabscriptModule) return;
-  
+
+  if (transpileCache.has(tabUri)) return;
+
   const content = fs.readFileSync(tabFilePath, 'utf8');
   doTranspile(content, tabUri, 0);
 }
 
 // Transpile TabScript document
-async function transpileTabScript(document: TextDocument): Promise<TranspileCache> {
+function transpileTabScript(document: TextDocument): TranspileCache {
   const cached = transpileCache.get(document.uri);
   if (cached && cached.version === document.version) {
     return cached;
-  }
-
-  if (!await loadTabScriptModule(document)) {
-    return { 
-      version: document.version, 
-      typescript: '', 
-      errors: [],
-      map: { in: [], out: [] }
-    };
   }
 
   return doTranspile(document.getText(), document.uri, document.version);
@@ -379,15 +309,15 @@ function mapTypeScriptToTabScript(tsOffset: number, map: { in: number[]; out: nu
 }
 
 // Helper to prepare TypeScript offset for LSP handlers
-async function prepareTypeScriptQuery(
+function prepareTypeScriptQuery(
   textDocumentPosition: TextDocumentPositionParams
-): Promise<{ document: TextDocument; result: TranspileCache; virtualPath: string; tsOffset: number } | null> {
+): { document: TextDocument; result: TranspileCache; virtualPath: string; tsOffset: number } | null {
   const document = documents.get(textDocumentPosition.textDocument.uri);
   if (!document || !tsLanguageService) {
     return null;
   }
 
-  const result = await transpileTabScript(document);
+  const result = transpileTabScript(document);
   const virtualPath = getVirtualTypeScriptPath(document.uri);
   const tabOffset = positionToOffset(document, textDocumentPosition.position);
   const tsOffset = mapTabScriptToTypeScript(tabOffset, result.map);
@@ -396,8 +326,8 @@ async function prepareTypeScriptQuery(
 }
 
 // Validate TabScript document
-async function validateTabScriptDocument(document: TextDocument): Promise<void> {
-  const result = await transpileTabScript(document);
+function validateTabScriptDocument(document: TextDocument): void {
+  const result = transpileTabScript(document);
   const diagnostics: Diagnostic[] = [];
 
   // Add transpilation errors
@@ -471,8 +401,8 @@ documents.onDidClose(e => {
 
 // Completion handler
 connection.onCompletion(
-  async (textDocumentPosition: TextDocumentPositionParams): Promise<CompletionItem[]> => {
-    const query = await prepareTypeScriptQuery(textDocumentPosition);
+  (textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
+    const query = prepareTypeScriptQuery(textDocumentPosition);
     if (!query) return [];
 
     const completions = tsLanguageService!.getCompletionsAtPosition(
@@ -511,8 +441,8 @@ function mapCompletionKind(kind: ts.ScriptElementKind): CompletionItemKind {
 
 // Hover handler
 connection.onHover(
-  async (textDocumentPosition: TextDocumentPositionParams): Promise<Hover | null> => {
-    const query = await prepareTypeScriptQuery(textDocumentPosition);
+  (textDocumentPosition: TextDocumentPositionParams): Hover | null => {
+    const query = prepareTypeScriptQuery(textDocumentPosition);
     if (!query) return null;
 
     // Debug logging
@@ -540,8 +470,8 @@ connection.onHover(
 
 // Signature help handler
 connection.onSignatureHelp(
-  async (textDocumentPosition: TextDocumentPositionParams): Promise<SignatureHelp | null> => {
-    const query = await prepareTypeScriptQuery(textDocumentPosition);
+  (textDocumentPosition: TextDocumentPositionParams): SignatureHelp | null => {
+    const query = prepareTypeScriptQuery(textDocumentPosition);
     if (!query) return null;
 
     const signatureHelp = tsLanguageService!.getSignatureHelpItems(
@@ -571,8 +501,8 @@ connection.onSignatureHelp(
 
 // Definition handler
 connection.onDefinition(
-  async (textDocumentPosition: TextDocumentPositionParams): Promise<Definition | null> => {
-    const query = await prepareTypeScriptQuery(textDocumentPosition);
+  (textDocumentPosition: TextDocumentPositionParams): Definition | null => {
+    const query = prepareTypeScriptQuery(textDocumentPosition);
     if (!query) return null;
 
     const definitions = tsLanguageService!.getDefinitionAtPosition(query.virtualPath, query.tsOffset);
@@ -632,8 +562,8 @@ connection.onDefinition(
 
 // Rename handler
 connection.onRenameRequest(
-  async (params: RenameParams): Promise<WorkspaceEdit | null> => {
-    const query = await prepareTypeScriptQuery(params);
+  (params: RenameParams): WorkspaceEdit | null => {
+    const query = prepareTypeScriptQuery(params);
     if (!query) return null;
 
     // First, check if rename is valid at this position

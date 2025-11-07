@@ -12,13 +12,7 @@ Full language support for TabScript - a modern language that compiles to TypeScr
 
 ## Requirements
 
-To enable IntelliSense and diagnostics, you must have `tabscript` installed in your project:
-
-```bash
-npm install tabscript
-```
-
-Without the `tabscript` package, only syntax highlighting will be available.
+The extension includes the TabScript transpiler, so no additional installation is required. Simply install this extension to get full language support.
 
 ## How It Works
 
@@ -48,11 +42,6 @@ This extension contributes the following settings:
 
 - `tabscript.trace.server`: Enable tracing of the language server communication (for debugging)
 
-## Known Issues
-
-- Source mapping is currently line-based. In rare cases, diagnostics may appear on the wrong column.
-- The extension looks for `tabscript` in your workspace's `node_modules` folder.
-
 ## Release Notes
 
 ### 0.1.0
@@ -64,28 +53,9 @@ Initial release:
 - Go to definition support
 - Multi-file support
 
-## For TabScript Developers
-
-This extension expects the `tabscript` module to export a function:
-
-```typescript
-function tabscript(
-  inData: string, 
-  options?: {
-    debug?: boolean | ((msg: string) => void);
-    recover?: boolean;
-    stripTypes?: boolean;
-    transformImport?: (uri: string) => Promise<string>;
-    onError?: (error: { message: string; line?: number; column?: number }) => void;
-  }
-): string;
-```
-
-The extension uses `recover: true` and `onError` callback to collect all transpilation errors and display them as diagnostics.
-
 ## Contributing
 
-Found a bug or have a feature request? Please open an issue on our [GitHub repository](https://github.com/yourusername/tabscript-vscode).
+Found a bug or have a feature request? Please open an issue on our [GitHub repository](https://github.com/vanviegen/tabscript).
 
 ## License
 

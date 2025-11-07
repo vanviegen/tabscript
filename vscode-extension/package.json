@@ -6,7 +6,7 @@
   "publisher": "tabscript",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/tabscript-vscode"
+    "url": "https://github.com/vanviegen/tabscript"
   },
   "license": "MIT",
   "engines": {
@@ -72,15 +72,6 @@
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.11",
-    "typescript": "^5.3.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.10.0",
-    "@types/vscode": "^1.85.0",
-    "@typescript-eslint/eslint-plugin": "^6.13.0",
-    "@typescript-eslint/parser": "^6.13.0",
-    "eslint": "^8.55.0",
-    "typescript": "^5.3.0"
+    "vscode-languageserver-textdocument": "^1.0.11"
   }
 }
