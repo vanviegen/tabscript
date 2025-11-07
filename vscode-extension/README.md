@@ -1,13 +1,20 @@
 # TabScript for Visual Studio Code
 
-Full language support for TabScript - a modern language that compiles to TypeScript.
+Language support for TabScript - modern TypeScript without the {(noise;)}.
 
-## Features
+## What is TabScript?
+
+TabScript is a transpiler that converts cleaner, indentation-based syntax to TypeScript or JavaScript. While semantically exactly the same as TypeScript, TabScript aims to reduce visual clutter and allow for beautiful DSLs, especially with regard to declarative UI code.
+
+Learn more at [tabscript.vanviegen.net](https://tabscript.vanviegen.net/)
+
+## Extension Features
 
 - **Syntax Highlighting**: Comprehensive syntax highlighting for TabScript files (`.tab`)
 - **IntelliSense**: Full code completion, hover information, and signature help powered by TypeScript
 - **Real-time Diagnostics**: Instant error checking and type validation
 - **Go to Definition**: Navigate to symbol definitions across your project
+- **Symbol Renaming**: Use F2 to rename symbols with full project awareness
 - **Multi-file Support**: Works seamlessly with imports between TabScript files
 
 ## Requirements
@@ -16,25 +23,7 @@ The extension includes the TabScript transpiler, so no additional installation i
 
 ## How It Works
 
-The extension transpiles your TabScript code to TypeScript in memory as you type, then uses the TypeScript language service to provide IntelliSense, diagnostics, and other language features. This means you get:
-
-- Type checking from TypeScript
-- Auto-completion for variables, functions, and types
-- Hover information showing type signatures
-- Parameter hints while writing function calls
-- Real-time error detection
-
-## TabScript Syntax Overview
-
-TabScript is similar to TypeScript but with cleaner syntax:
-
-- Function parameters use `||` instead of `()`: `function myFunc|x: number| { }`
-- Arrow functions: `|x| => x + 1` instead of `(x) => x + 1`
-- Type inference with `:=` and `::=`: `x := 5` (const) or `x ::= 5` (let)
-- Union types with `or`: `x: string or number`
-- Intersection types with `and`: `x: A and B`
-- Function calls without parens: `console.log& "hello"` instead of `console.log("hello")`
-- Bitwise operators: `~bit_and`, `~bit_or`, `~bit_xor`, `~shift_left`, etc.
+The extension transpiles your TabScript code to TypeScript in memory as you type, then uses the TypeScript language service to provide IntelliSense, diagnostics, and other language features.
 
 ## Extension Settings
 

@@ -36,7 +36,7 @@
         "test-ts": "./dist/cli.js tests/test.tab --output /dev/stdout | diff -u tests/test.ts -",
         "test-js": "./dist/cli.js tests/test.tab --strip-types --output /dev/stdout | diff -u tests/test.js -",
         "test-er": "./dist/cli.js tests/error.tab --recover --output /dev/stdout 2> /dev/null | diff -u tests/error.ts -",
-        "test-ui": "./dist/cli.js tests/ui.tab --ui A --output /dev/stdout | diff -u tests/ui.ts -",
+        "test-ui": "./dist/cli.js tests/ui.tab --output /dev/stdout | diff -u tests/ui.ts -",
         "prepack": "npm run build && npm run test"
     },
     "repository": {

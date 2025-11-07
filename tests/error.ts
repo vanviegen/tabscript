@@ -1,3 +1,4 @@
+;
 const x=y;
 const a=1;
 let b;

@@ -130,6 +130,20 @@ async function loadTranspiler() {
     }
 }
 
+// Check if code has a TabScript header
+function hasHeader(code) {
+    const trimmed = code.trim();
+    return trimmed.startsWith('tabscript ');
+}
+
+// Prepend header if missing
+function ensureHeader(code) {
+    if (hasHeader(code)) {
+        return code;
+    }
+    return 'tabscript 1.0\n\n' + code;
+}
+
 // Transpile TabScript code
 async function transpileCode(code, options = {}) {
     const transpiler = await loadTranspiler();
@@ -140,12 +154,14 @@ async function transpileCode(code, options = {}) {
         };
     }
 
+    // Ensure header exists
+    const codeWithHeader = ensureHeader(code);
+
     try {
-        const result = transpiler.tabscript(code, {
+        const result = transpiler.tabscript(codeWithHeader, {
             stripTypes: options.stripTypes || false,
             recover: true,
-            whitespace: 'pretty',
-            ui: options.ui || null
+            whitespace: 'pretty'
         });
 
         return {
@@ -357,7 +373,11 @@ function createTranspilerWidget(codeE, initialCode) {
         // Switch to stacked layout in edit mode
         splitE.classList.add('edit-mode');
 
-        editor = await loadEditor(inputContentE, 'tabscript', currentCode, (newCode) => {
+        // Ensure header when entering edit mode
+        const codeToEdit = ensureHeader(currentCode);
+        currentCode = codeToEdit;
+
+        editor = await loadEditor(inputContentE, 'tabscript', codeToEdit, (newCode) => {
             currentCode = newCode;
             clearTimeout(updateTimeout);
             updateTimeout = setTimeout(updateOutput, 300);

@@ -6,11 +6,34 @@ title: TabScript Tutorial
 
 TabScript is an alternate syntax for TypeScript that replaces braces with indentation and introduces shorthand operators while maintaining full TypeScript compatibility. The compiler outputs clean TypeScript or JavaScript.
 
+## Header Line
+
+All TabScript files must start with a header line that declares the language version and optional feature flags:
+
+```tabscript
+tabscript 1.0
+```
+
+The version format is `major.minor`. The transpiler will process code with the same major version and a minor version less than or equal to its own.
+
+### Feature Flags
+
+Feature flags can be added after the version:
+
+```tabscript
+tabscript 1.0 ui=A
+```
+
+Currently supported feature flags:
+- `ui=<library>` - Enables UI tag syntax (e.g., `ui=A` for Aberdeen.js)
+
 ## Variables
 
 Variable declarations use colons: a single `:` for `const` and a double `::` for `let`.
 
 ```tabscript
+tabscript 1.0
+
 # One colon = const
 x : number = 3
 z := 42
@@ -278,9 +301,11 @@ enum Direction { Up, Down, Left, Right }
 
 ## UI Tags (Optional)
 
-When using the `--ui` flag, you can use JSX-like syntax. This is designed primarily for Aberdeen.js.
+When using the `ui` feature flag in the header (`tabscript 1.0 ui=A`), you can use JSX-like syntax. This is designed primarily for Aberdeen.js.
 
 ```tabscript
+tabscript 1.0 ui=A
+
 # Create element
 <div>
 
@@ -332,7 +357,6 @@ tabscript <input.tab> [options]
 Options:
   --output <file>       Output file
   --strip-types         Transpile to JavaScript
-  --ui <library>        Enable UI tag syntax (e.g., 'A' for Aberdeen.js)
   --whitespace <mode>   preserve (default) or pretty
   --debug               Show debug output
   --recover             Attempt to recover from errors

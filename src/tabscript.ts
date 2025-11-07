@@ -1,3 +1,10 @@
+
+/**
+ * TabScript language version supported by this transpiler.
+ * Code must have same major version and minor version <= this.
+ */
+const VERSION = {major: 1, minor: 0};
+
 /**
  * Error thrown when the TabScript parser encounters invalid syntax.
  * Contains position information (line, column, offset) for the error location.
@@ -24,6 +31,7 @@ const
     IDENTIFIER = descr(/[a-zA-Z_$][0-9a-zA-Z_$]*/y, "identifier"),
     STRING = descr(/(['"])(?:(?=(\\?))\2.)*?\1/y, "string"),
     NUMBER = descr(/[+-]?(?:0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/y, "number"),
+    INTEGER = descr(/\d+/y, "integer"),
     OPERATOR = descr(/instanceof\b|in\b|or\b|and\b|[!=]~|[+\-*\/!=<>]=|[+\-*\/=<>]|%[a-z_]+/y, "bin-op"),
     BACKTICK_STRING = descr(/[\s\S]*?(\${|`)/y, "`string`"),
     EXPRESSION_PREFIX = descr(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b|new\b/y, "unary-op"),
@@ -64,8 +72,6 @@ export type Options = {
     transformImport?: (uri: string) => string,
     /** Output formatting mode: `"preserve"` maintains input alignment, `"pretty"` adds readable indentation. */
     whitespace?: 'preserve' | 'pretty',
-    /** Library name for UI tag syntax (e.g., `"A"` for Aberdeen.js). Enables JSX-like tag transpilation. */
-    ui?: string,
 };
 
 
@@ -95,7 +101,8 @@ export function tabscript(inData: string, options: Options = {}): {
     }
 } {
     options.whitespace ||= 'preserve';
-    const {debug,recover,transformImport,stripTypes,whitespace,ui} = options;
+    const {debug,recover,transformImport,stripTypes,whitespace} = options;
+    let ui: string | undefined;
     
     let inPos = 0; // Current char in `inData`
     let inLine = 1; // Line number for `pos`
@@ -126,10 +133,38 @@ export function tabscript(inData: string, options: Options = {}): {
 
     ///// Recursive decent parser functions /////
 
+    function parseHeader() {
+        // All .tab files must start with a header: tabscript X.Y [feature=value ...]
+        must(read('tabscript'));
+
+        // Parse version: major.minor
+        const majorNum = parseInt(must(read(INTEGER)));
+        must(read('.'));
+        const minorNum = parseInt(must(read(INTEGER)));
+
+        if (majorNum !== VERSION.major || minorNum > VERSION.minor) {
+            throw new ParseError(inPos, inLine, inCol, `Script version ${majorNum}.${minorNum} outside supported range (${VERSION.major}.0 - ${VERSION.major}.${VERSION.minor})`);
+        }
+
+        // Parse feature flags: name=value
+        if (read('ui')) {
+            must(read('='));
+            ui = must(read(IDENTIFIER));
+        }
+        must(readNewline());
+        outTargetPos = outTargetCol = outTargetLine = undefined;
+
+        return true;
+    }
+
     function parseMain() {
         if (stripTypes) emit('"use strict";');
+        
         read(''); // Consume leading comments
         readNewline(); // Optionally start with some newlines/comments
+
+        recoverErrors(parseHeader); // like: tabscript 1.0 ui=A
+
         while(inPos < inData.length) recoverErrors(() => {
             must(parseStatement) && must(readNewline());
         });
