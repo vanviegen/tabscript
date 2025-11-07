@@ -1,3 +1,5 @@
+tabscript 1.0
+
 import A from 'module'
 import {B, C as D} from "module2"
 import

@@ -1,6 +1,7 @@
+A.e('div')
 
 
-A.e('div');
+				;
 
 
 A.e('main').c('my-class');

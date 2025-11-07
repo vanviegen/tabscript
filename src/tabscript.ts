@@ -51,6 +51,12 @@ const REPLACE_OPERATORS: Record<string, string> = {
 };
 
 /**
+ * TabScript language version supported by this transpiler.
+ * Code must have same major version and minor version <= this.
+ */
+const TABSCRIPT_VERSION = {major: 1, minor: 0};
+
+/**
  * Configuration options for the TabScript transpiler.
  */
 export type Options = {
@@ -95,7 +101,8 @@ export function tabscript(inData: string, options: Options = {}): {
     }
 } {
     options.whitespace ||= 'preserve';
-    const {debug,recover,transformImport,stripTypes,whitespace,ui} = options;
+    const {debug,recover,transformImport,stripTypes,whitespace} = options;
+    let ui = options.ui; // UI can be overridden by header
     
     let inPos = 0; // Current char in `inData`
     let inLine = 1; // Line number for `pos`
@@ -126,10 +133,97 @@ export function tabscript(inData: string, options: Options = {}): {
 
     ///// Recursive decent parser functions /////
 
+    function parseHeader() {
+        // All .tab files must start with a header: tabscript X.Y [feature=value ...]
+        if (!read('tabscript')) {
+            const error = new ParseError(inPos, inLine, inCol, 'TabScript files must start with a header line: tabscript X.Y [feature=value ...]');
+            if (recover) {
+                errors.push(error);
+                return false;
+            }
+            throw error;
+        }
+
+        // Parse version: major.minor (NUMBER regex will match "1.0" as a single token)
+        const version = read(NUMBER);
+        if (!version) {
+            const error = new ParseError(inPos, inLine, inCol, 'Invalid TabScript version format. Expected: tabscript X.Y');
+            if (recover) {
+                errors.push(error);
+                return false;
+            }
+            throw error;
+        }
+
+        // Split version into major and minor
+        const versionParts = version.split('.');
+        if (versionParts.length !== 2) {
+            const error = new ParseError(inPos, inLine, inCol, 'Invalid TabScript version format. Expected: tabscript X.Y');
+            if (recover) {
+                errors.push(error);
+                return false;
+            }
+            throw error;
+        }
+
+        // Validate version compatibility
+        const majorNum = parseInt(versionParts[0]);
+        const minorNum = parseInt(versionParts[1]);
+
+        if (majorNum !== TABSCRIPT_VERSION.major) {
+            const error = new ParseError(
+                inPos, inLine, inCol,
+                `Unsupported TabScript major version ${majorNum}. This transpiler supports version ${TABSCRIPT_VERSION.major}.${TABSCRIPT_VERSION.minor}`
+            );
+            if (recover) {
+                errors.push(error);
+            } else {
+                throw error;
+            }
+        } else if (minorNum > TABSCRIPT_VERSION.minor) {
+            const error = new ParseError(
+                inPos, inLine, inCol,
+                `TabScript version ${majorNum}.${minorNum} is too new. This transpiler supports up to version ${TABSCRIPT_VERSION.major}.${TABSCRIPT_VERSION.minor}`
+            );
+            if (recover) {
+                errors.push(error);
+            } else {
+                throw error;
+            }
+        }
+
+        // Parse feature flags: name=value
+        while (peek(IDENTIFIER, '=')) {
+            const flagName = must(read(IDENTIFIER));
+            must(read('='));
+            const flagValue = must(read(IDENTIFIER));
+
+            if (flagName === 'ui') {
+                ui = flagValue;
+            } else {
+                const error = new ParseError(
+                    inPos, inLine, inCol,
+                    `Unknown feature flag: ${flagName}`
+                );
+                if (recover) {
+                    errors.push(error);
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        return true;
+    }
+
     function parseMain() {
         if (stripTypes) emit('"use strict";');
         read(''); // Consume leading comments
-        readNewline(); // Optionally start with some newlines/comments
+
+        // Parse required header
+        must(parseHeader);
+        must(readNewline());
+
         while(inPos < inData.length) recoverErrors(() => {
             must(parseStatement) && must(readNewline());
         });

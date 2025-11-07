@@ -26,6 +26,7 @@ for (let i = 0; i < args.length; i++) {
       process.exit(1);
     }
     ui = args[++i];
+    console.warn('Warning: --ui flag is deprecated. Use header syntax instead: tabscript 1.0 ui=' + ui);
   } else if (args[i] === '--whitespace') {
     if (i + 1 >= args.length) {
       console.error('Error: --whitespace requires a value (preserve or pretty)');

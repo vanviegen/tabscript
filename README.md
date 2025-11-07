@@ -7,6 +7,8 @@ TabScript is an alternate syntax for TypeScript. Think CoffeeScript for the mode
 ## Quick Example
 
 ```
+tabscript 1.0
+
 # TabScript
 add := |a, b| a + b
 

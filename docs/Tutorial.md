@@ -6,11 +6,34 @@ title: TabScript Tutorial
 
 TabScript is an alternate syntax for TypeScript that replaces braces with indentation and introduces shorthand operators while maintaining full TypeScript compatibility. The compiler outputs clean TypeScript or JavaScript.
 
+## Header Line
+
+All TabScript files must start with a header line that declares the language version and optional feature flags:
+
+```tabscript
+tabscript 1.0
+```
+
+The version format is `major.minor`. The transpiler will process code with the same major version and a minor version less than or equal to its own.
+
+### Feature Flags
+
+Feature flags can be added after the version:
+
+```tabscript
+tabscript 1.0 ui=A
+```
+
+Currently supported feature flags:
+- `ui=<library>` - Enables UI tag syntax (e.g., `ui=A` for Aberdeen.js)
+
 ## Variables
 
 Variable declarations use colons: a single `:` for `const` and a double `::` for `let`.
 
 ```tabscript
+tabscript 1.0
+
 # One colon = const
 x : number = 3
 z := 42
@@ -31,6 +54,8 @@ value : string or undefined
 Functions use `||` to wrap parameters instead of `()`. For arrow functions, you can omit braces when returning an expression.
 
 ```tabscript
+tabscript 1.0
+
 # Arrow functions
 add := |a, b| a + b
 double := |x: number| x * 2
@@ -55,6 +80,8 @@ identity := <T>|x: T| x
 Use `&` to call functions with space-separated arguments or one argument per line for cleaner syntax.
 
 ```tabscript
+tabscript 1.0
+
 # Regular call (traditional syntax still works)
 result := func(a, b)
 
@@ -76,6 +103,8 @@ processData options |item|
 All control structures use indentation instead of braces.
 
 ```tabscript
+tabscript 1.0
+
 # If statement (single line)
 if x > 0 console.log("positive")
 
@@ -129,6 +158,8 @@ catch error
 TabScript uses `and` and `or` for logical operators instead of `&&` and `||`.
 
 ```tabscript
+tabscript 1.0
+
 if x > 0 and y > 0
 	console.log("both positive")
 
@@ -141,6 +172,8 @@ if x == 0 or y == 0
 TabScript uses `==` and `!=` for strict equality (like TypeScript's `===` and `!==`). For loose equality, use `=~` and `!~`.
 
 ```tabscript
+tabscript 1.0
+
 # Strict equality by default
 if x == y
 	console.log("equal")
@@ -158,6 +191,8 @@ if x =~ y
 Test if an expression is neither `null` nor `undefined` by suffixing it with `?`.
 
 ```tabscript
+tabscript 1.0
+
 if getValue()?
 	console.log("has value")
 ```
@@ -167,6 +202,8 @@ if getValue()?
 Binary operators and modulo use verbose names with a `%` prefix.
 
 ```tabscript
+tabscript 1.0
+
 # Bitwise operations
 result := x %bit_or y
 result := x %bit_and y
@@ -187,6 +224,8 @@ console.log(5 %mod 3, "equals 2")
 Classes use indentation-based syntax. Methods need `||` even when they have no parameters.
 
 ```tabscript
+tabscript 1.0
+
 # Basic class with properties
 class Person
 	name: string
@@ -232,6 +271,8 @@ class Box<T>
 TypeScript's type system is fully supported with TabScript syntax.
 
 ```tabscript
+tabscript 1.0
+
 # Interface with properties
 interface User
 	name: string
@@ -261,6 +302,8 @@ type Mapper<T, U> = |input: T|: U
 Enums work the same as in TypeScript, with indentation instead of braces.
 
 ```tabscript
+tabscript 1.0
+
 # Basic enum
 enum Color
 	Red
@@ -278,9 +321,11 @@ enum Direction { Up, Down, Left, Right }
 
 ## UI Tags (Optional)
 
-When using the `--ui` flag, you can use JSX-like syntax. This is designed primarily for Aberdeen.js.
+When using the `ui` feature flag in the header (`tabscript 1.0 ui=A`), you can use JSX-like syntax. This is designed primarily for Aberdeen.js.
 
 ```tabscript
+tabscript 1.0 ui=A
+
 # Create element
 <div>
 
@@ -332,10 +377,10 @@ tabscript <input.tab> [options]
 Options:
   --output <file>       Output file
   --strip-types         Transpile to JavaScript
-  --ui <library>        Enable UI tag syntax (e.g., 'A' for Aberdeen.js)
   --whitespace <mode>   preserve (default) or pretty
   --debug               Show debug output
   --recover             Attempt to recover from errors
+  --ui <library>        (Deprecated) Enable UI tag syntax - use header instead
 ```
 
 ## Learn More

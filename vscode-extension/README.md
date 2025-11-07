@@ -34,6 +34,7 @@ The extension transpiles your TabScript code to TypeScript in memory as you type
 
 TabScript is similar to TypeScript but with cleaner syntax:
 
+- **All files must start with a header**: `tabscript 1.0` (optionally with feature flags like `ui=A`)
 - Function parameters use `||` instead of `()`: `function myFunc|x: number| { }`
 - Arrow functions: `|x| => x + 1` instead of `(x) => x + 1`
 - Type inference with `:=` and `::=`: `x := 5` (const) or `x ::= 5` (let)

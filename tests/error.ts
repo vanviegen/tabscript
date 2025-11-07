@@ -1,4 +1,5 @@
-const x=y;
+const x
+			= y;
 const a=1;
 let b;
 a = 2;
