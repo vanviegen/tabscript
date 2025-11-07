@@ -9,23 +9,49 @@ TabScript is an alternate syntax for TypeScript. Think CoffeeScript for the mode
 ```tabscript
 tabscript 1.0
 
-add := |a, b| a + b
+# Define a constant initialized to a function that takes one parameter
+greet := |name: string|
+	console.log(`Welcome, ${name}`)
 
-for item: of items
-	if item.value > 0
-		console.log(item.name)
+interface User
+	name: string
+	age: number
+	active: boolean
+	role: string
+	permissions: string[]
+
+processUsers := |users: User[]|
+	# Call the filter method using & syntax, so avoid parentheses
+	active := users.filter& |u| u.active and u.age >= 18
+
+	# The colon here causes `user` to be declared as a constant in the loop
+	for user: of active
+		if user.role == "admin" or user.permissions.includes("write")
+			greet(user.name)
 ```
 
 Transpiles to clean TypeScript:
 
 ```typescript
-const add = (a, b) => a + b;
-
-for (const item of items) {
-	if (item.value > 0) {
-		console.log(item.name);
-	}
+const greet=(name:string)=>{
+        console.log( `Welcome, ${name}`);
+};
+interface User{
+        name: string
+        age: number
+        active: boolean
+        role: string
+        permissions: string[]
 }
+const processUsers=(users:User[])=>{
+	const active=users.filter((u)=>u.active&&u.age >= 18);
+
+	for(const user of active){
+		if(user.role ==="admin" || user.permissions.includes("write")){
+			greet(user.name);
+		}
+	}
+};
 ```
 
 ## Installation

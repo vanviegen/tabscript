@@ -6,26 +6,48 @@ title: TabScript Tutorial
 
 TabScript is an alternate syntax for TypeScript that replaces braces with indentation and introduces shorthand operators while maintaining full TypeScript compatibility. The compiler outputs clean TypeScript or JavaScript.
 
-## Header Line
+## Getting Started
 
-All TabScript files must start with a header line that declares the language version and optional feature flags:
-
-```tabscript
-tabscript 1.0
-```
-
-The version format is `major.minor`. The transpiler will process code with the same major version and a minor version less than or equal to its own.
-
-### Feature Flags
-
-Feature flags can be added after the version:
+Let's start with a complete example that showcases TabScript's clean syntax:
 
 ```tabscript
-tabscript 1.0 ui=A
+tabscript 1.0 # Declare TabScript version
+
+interface Task
+	title: string
+	status: "done" or "pending"
+	priority: number
+
+# := for const declaration, || for function definition parameters
+filterTasks := |tasks: Task[], status: "done" or "pending"|
+	# Call the filter method using & syntax, so avoid parentheses
+	# Use 'and'/'or' instead of &&/||
+	tasks.filter& |t| t.status == status and t.priority > 0
+
+# Single expression functions are super clean
+getHighPriority := |tasks: Task[]| tasks.filter& |t| t.priority >= 8
+
+# Functions with indented blocks - no braces needed!
+function printTaskStats|tasks: Task[]|
+	completed := filterTasks& tasks "done"
+	pending := filterTasks& tasks "pending"
+
+	# The colon here causes `task` to be declared as a constant in the loop
+	for task: of getHighPriority(pending)
+		console.log("HIGH PRIORITY:", task.title)
+
+	# String interpolation and readable conditionals
+	if completed.length > 0
+		console.log(`Completed ${completed.length} tasks!`)
 ```
 
-Currently supported feature flags:
-- `ui=<library>` - Enables UI tag syntax (e.g., `ui=A` for Aberdeen.js)
+Notice how TabScript removes visual clutter:
+- **No braces** - indentation defines blocks
+- **`:` and `::`** - declare const and let variables
+- **`||` syntax** - cleaner function parameters
+- **`&` operator** - space-separated function arguments
+- **`and`/`or`** - more readable than `&&`/`||`
+- **`==` is strict** - safe by default (transpiles to `===`)
 
 ## Variables
 
