@@ -120,3 +120,16 @@ tag := "d"+"iv"
 <div><span>Inline
 <div>
 	<span>Block child
+	
+# Attributes
+<div>
+	if something
+		<.myclass>
+	:id = `test`
+	:data-value = 40 + 2
+	:click = ||
+		console.log("Clicked")
+	:destroy! ||
+		console.log("Destroyed")
+	x := 42
+	:value ~ x

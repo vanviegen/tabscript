@@ -30,17 +30,28 @@ const
     WHITESPACE = descr(/[ \t\r]*(?:#.*)?/y, "whitespace"),
     IDENTIFIER = descr(/[a-zA-Z_$][0-9a-zA-Z_$]*/y, "identifier"),
     STRING = descr(/(['"])(?:(?=(\\?))\2.)*?\1/y, "string"),
+    REST_OF_LINE_OR_INTERPOLATE = descr(/.*?(?<=\s*#|\s*$|$\{)/ym, "rest-of-line"),
     NUMBER = descr(/[+-]?(?:0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/y, "number"),
     INTEGER = descr(/\d+/y, "integer"),
     OPERATOR = descr(/instanceof\b|in\b|or\b|and\b|[!=]~|[+\-*\/!=<>]=|[+\-*\/=<>]|%[a-z_]+/y, "bin-op"),
-    BACKTICK_STRING = descr(/[\s\S]*?(\${|`)/y, "`string`"),
+    WITHIN_BACKTICK_STRING = descr(/[\s\S]*?(\${|`)/y, "`string`"),
     EXPRESSION_PREFIX = descr(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b|new\b/y, "unary-op"),
     REGEXP = descr(/\/(\\.|[^\/])+\/[gimsuyd]*/y, "regexp"),
+    TAG_LITERAL = descr(/([0-9a-zA-Z_$\-]+)/y, "tag-literal"),
+    TAG_OPERATOR = descr(/[=~!:]/y, "tag-operator"),
 // Other regexes
     ANYTHING = /[\s\S]/y,
     ALPHA_NUM = /^[a-zA-Z0-9]+$/,
     START_WORD_CHAR = /^[a-zA-Z0-9_$]/,
-    IS_WORD_CHAR = /^[a-zA-Z0-9_$]$/;
+    IS_WORD_CHAR = /^[a-zA-Z0-9_$]$/,
+    CHECK_IDENTIFIER = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/ // Same as IDENTIFIER but without the /y flag
+    ;
+
+const REPLACE_TAG_OPERATORS : Record<string, string> = {
+    '=': 'a',
+    '~': 'p',
+    ':': 's',
+};
 
 const REPLACE_OPERATORS: Record<string, string> = {
     "or": "||",
@@ -176,8 +187,7 @@ export function tabscript(inData: string, options: Options = {}): {
         if (parseReturn() || parseThrow() || parseTypeDecl() || parseExport() || parseImport() || parseDoWhile()) {
         } else if (parseIfWhile() || parseFor() || parseTry() || parseFunction(true) || parseClass() || parseSwitch() || parseEnum() || parseDeclare()) {
             return true; // Statement parsed, but no need for semicolon
-        } else if (parseTag()) {
-        } else if (parseVarDecl() || parseExpressionSeq()) {
+        } else if (parseTag() || parseAttribute() || parseVarDecl() || parseExpressionSeq()) {
         } else {
             return false; // This is not a statement
         }
@@ -629,8 +639,9 @@ export function tabscript(inData: string, options: Options = {}): {
 
         let tmp;
         while(true) {
+            const lastNotSpace = inData[inPos-1]!==' ';
             // Function call '(' may not be preceded by a whitespace (to distinguish from `myFunc& a (3+4)` syntax)
-            if (inData[inPos-1]!==' ' && parseGroup({open: '(', close: ')', next: ','}, () => { // myFunc(a, b, ...rest)
+            if (lastNotSpace && parseGroup({open: '(', close: ')', next: ','}, () => { // myFunc(a, b, ...rest)
                 if (eat('...')) return must(parseExpression);
                 else return parseExpression();
             })) {}
@@ -656,7 +667,7 @@ export function tabscript(inData: string, options: Options = {}): {
             else if (eatType('as')) must(parseType());
             else if (eat('?.')) must(eat(IDENTIFIER) || parseIndex());
             else if (!peek('..') && eat('.')) must(eat(IDENTIFIER));
-            else if (parseTemplateArg()) {}
+            else if (lastNotSpace && parseTemplateArg()) {}
             else if (tmp = read(OPERATOR)) {
                 must(tmp[0]!=='%' || (tmp in REPLACE_OPERATORS));
                 emit(REPLACE_OPERATORS[tmp] || tmp);
@@ -688,7 +699,7 @@ export function tabscript(inData: string, options: Options = {}): {
         // `The answer: ${3+4}.. ${`test`}`
         if (!eat('`')) return false;
         while(true) {
-            let m = must(eat(BACKTICK_STRING));
+            let m = must(eat(WITHIN_BACKTICK_STRING));
             if (m.slice(-1) === '`') break;
             // interpolate
             must(parseExpression);
@@ -858,6 +869,30 @@ export function tabscript(inData: string, options: Options = {}): {
         return true;
     }
 
+    function readTagValue() {
+        if (read('${')) {
+            const saved = getOutState();
+            must(parseExpression());
+            must(read('}'));
+            const expr = outData.slice(saved.outData.length);
+            restoreState(saved);
+            return expr;
+        }
+
+        const lit = read(TAG_LITERAL);
+        if (lit) return JSON.stringify(lit);
+
+        if (peek('`')) {
+            const saved = getOutState();
+            must(parseBacktickString);
+            const expr = outData.slice(saved.outData.length);
+            restoreState(saved);
+            return expr;
+        }
+
+        return read(STRING);
+    }
+
     function parseTag(isChained = false) {
         // Only parse tags when ui option is enabled
         if (!ui) return false;
@@ -865,276 +900,86 @@ export function tabscript(inData: string, options: Options = {}): {
         // At statement start, < can only be a tag
         if (!read('<')) return false;
 
-        let hasElement = false;
-        let needsDot = false; // Track if we need . before next method
+        if (!isChained) emit(ui);
 
         // Parse optional element name (can be IDENTIFIER or ${expr})
-        if (read('$')) {
-            // Dynamic element name: <${tag}>
-            must(read('{'));
-            if (isChained) emit('e(');
-            else emit(`${ui}.e(`);
-            must(parseExpression());
-            emit(')', false);
-            must(read('}'));
-            hasElement = true;
-            needsDot = true;
-        } else {
-            const elementName = read(IDENTIFIER);
-            if (elementName) {
-                if (isChained) emit(`e('${elementName}')`);
-                else emit(`${ui}.e('${elementName}')`);
-                hasElement = true;
-                needsDot = true;
-            }
-        }
 
-        // Parse classes, attributes, properties, styles in a loop
-        while (!peek('>')) {
-            if (read('.')) {
-                // Class: .my-class (class names can contain hyphens)
-                const classNameParts = [must(read(IDENTIFIER))];
-                while (read('-')) {
-                    classNameParts.push(must(read(IDENTIFIER)));
-                }
-                const className = classNameParts.join('-');
-                if (needsDot) emit('.');
-                else if (!hasElement && !isChained) emit(`${ui}.`);
-                emit(`c('${className}')`);
-                needsDot = true;
-            } else if (peek(IDENTIFIER, '-') && peekStyleProp()) {
-                // Style with hyphen: margin-top:10px
-                const styleParts = [must(read(IDENTIFIER))];
-                while (read('-')) {
-                    styleParts.push(must(read(IDENTIFIER)));
-                }
-                must(read(':'));
-                const styleValue = parseTagValue();
-                // Convert kebab-case to camelCase
-                const camelName = styleParts[0] + styleParts.slice(1).map(p => p[0].toUpperCase() + p.slice(1)).join('');
-                if (needsDot) emit('.');
-                else if (!hasElement && !isChained) emit(`${ui}.`);
-                emit(`s('${camelName}',${styleValue})`);
-                needsDot = true;
-            } else if (peek(IDENTIFIER, ':')) {
-                // Style: color:red
-                const styleName = must(read(IDENTIFIER));
-                must(read(':'));
-                const styleValue = parseTagValue();
-                if (needsDot) emit('.');
-                else if (!hasElement && !isChained) emit(`${ui}.`);
-                emit(`s('${styleName}',${styleValue})`);
-                needsDot = true;
-            } else if (peek(IDENTIFIER, '~')) {
-                // Property binding: value~${expr}
-                const propName = must(read(IDENTIFIER));
-                must(read('~'));
-                const propValue = parseTagValue();
-                if (needsDot) emit('.');
-                else if (!hasElement && !isChained) emit(`${ui}.`);
-                emit(`p('${propName}',${propValue})`);
-                needsDot = true;
-            } else if (peek(IDENTIFIER, '=')) {
-                // Attribute: type=text
-                const attrName = must(read(IDENTIFIER));
-                must(read('='));
-                const attrValue = parseTagValue();
-                if (needsDot) emit('.');
-                else if (!hasElement && !isChained) emit(`${ui}.`);
-                emit(`a('${attrName}',${attrValue})`);
-                needsDot = true;
+        while(true) {
+            if (read('.')) { // class
+                emit(`.c(${readTagValue()})`);
             } else {
-                break;
+                const name = readTagValue();
+                if (!name) break;
+
+                const op = read(TAG_OPERATOR);
+                if (op) {
+                    parseAttributeValue(name, op, false);
+                } else { // Create an element
+                    emit(`.e(${name})`);
+                }
             }
         }
 
         must(read('>'));
 
-        // Parse content: inline child tags, text, or indented block
-        // Check if there are inline child tags (another < on same line)
-        if (parseInlineChildTags(needsDot, hasElement)) {
-            // Handled inline child tags
-        } else if (parseTagTextContent(needsDot, isChained, hasElement)) {
-            // Handled inline text
-        } else if (readIndent()) {
-            // Indented block - create reactive function
-            if (needsDot) emit('.');
-            else if (!isChained) emit(`${ui}.`);
-            emit('f(function(){');
-            while (true) {
-                if (!parseStatement()) break;
-                if (!readNewline()) break;
-            }
-            must(readDedent());
-            emit('})');
-        } else if (!hasElement && !needsDot && !isChained) {
-            // Empty <> tag with no content - error
-            must(false);
-        }
+        // Optional chaining of tags
+        if (parseTag(true)) return true;
 
-        return true;
-    }
-
-    function parseInlineChildTags(needsDot: boolean, hasElement: boolean) {
-        // Check if next non-whitespace char on same line is <
-        let tempPos = inPos;
-        while (tempPos < inData.length && (inData[tempPos] === ' ' || inData[tempPos] === '\t')) {
-            tempPos++;
-        }
-        // Must be < and not crossed a newline
-        if (tempPos >= inData.length || inData[tempPos] !== '<') {
-            return false;
-        }
-        // Check we didn't cross a newline
-        for (let i = inPos; i < tempPos; i++) {
-            if (inData[i] === '\n') return false;
-        }
-
-        // We have inline child tags - chain them directly with .
-        if (needsDot) emit('.');
-        else if (!hasElement) emit(`${ui}.`);
-
-        // Parse the child tag as chained (it won't emit A. prefix)
-        must(parseTag(true));
-
-        return true;
-    }
-
-    function peekStyleProp() {
-        // Look ahead to see if this is a style property (has : after hyphens)
-        const saved = getInState();
-        read(IDENTIFIER);
-        let foundColon = false;
-        while (read('-')) {
-            if (!read(IDENTIFIER)) break;
-        }
-        if (read(':')) foundColon = true;
-        restoreState(saved);
-        return foundColon;
-    }
-
-    function parseTagValue() {
-        // Parse a tag attribute/property/style value
-        // Can be: ${expr}, "string", identifier, number, or number+unit (like 10px)
-
-        if (read('$')) {
-            must(read('{'));
-            // Capture the expression
-            const exprStart = outData.length;
-            must(parseExpression());
-            const exprCode = outData.substring(exprStart);
-            outData = outData.substring(0, exprStart);
-            must(read('}'));
-            return exprCode;
-        }
-
+        // Optional text content
         const str = read(STRING);
         if (str) {
-            // Check if string contains ${}
-            if (str.includes('${')) {
-                // Convert to template literal
-                return '`' + str.slice(1, -1) + '`';
-            }
-            return str;
+            emit(`.t(${str})`);
+            return true;
         }
 
-        // Check for number possibly followed by unit (like 10px, 14em, etc.)
-        const num = read(NUMBER);
-        if (num) {
-            // After read(NUMBER), check if there's an identifier immediately following (no whitespace)
-            // peek() will check current position
-            const unit = peek(IDENTIFIER);
-            if (unit) {
-                // Consume the unit
-                read(IDENTIFIER);
-                return `'${num}${unit}'`;
-            }
-            return `'${num}'`;
+        if (peek('`')) {
+            emit('.t(');
+            must(parseBacktickString);
+            emit(')');
+            return true;
         }
 
-        const id = read(IDENTIFIER);
-        if (id) return `'${id}'`;
-
-        must(false);
-        return '';
-    }
-
-    function parseTagTextContent(needsDot: boolean, isChained: boolean, hasElement: boolean) {
-        // Check if there's text content on the same line
-        const saved = getFullState();
-
-        // Peek ahead to see if there's non-whitespace before newline
-        let hasContent = false;
-        let tempPos = inPos;
-        while (tempPos < inData.length && (inData[tempPos] === ' ' || inData[tempPos] === '\t')) {
-            tempPos++;
-        }
-        if (tempPos < inData.length && inData[tempPos] !== '\n') {
-            hasContent = true;
+        if (parseGroup({jsOpen: '.f(function(){', jsClose: '})', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement))) {
+            return true;
         }
 
-        if (!hasContent) {
-            return false;
+        const saved = getOutState();
+        emit('.t(`');
+        let content = false;
+        while(true) {
+            const rest = read(REST_OF_LINE_OR_INTERPOLATE);
+            if (!rest) break;
+            emit(rest.replace(/\\|`/g, '\\$&')); // escape backtick and backslash in output
+            content = true;
+            if (rest.slice(-1) !== '${') break; // End of line
+            // Interpolation
+            must(parseExpression());
+            must(read('}'));
         }
-
-        // We have inline content - parse it
-        // Skip leading whitespace
-        while (inData[inPos] === ' ' || inData[inPos] === '\t') {
-            inPos++;
-        }
-
-        if (needsDot) emit('.t(');
-        else if (!isChained) emit(`${ui}.t(`);
-        else emit('t(');
-
-        let textParts: string[] = [];
-        let currentText = '';
-
-        while (inPos < inData.length && inData[inPos] !== '\n') {
-            if (inData[inPos] === '$' && inData[inPos + 1] === '{') {
-                // Save accumulated text
-                if (currentText) {
-                    textParts.push(`'${currentText}'`);
-                    currentText = '';
-                }
-
-                inPos += 2; // Skip ${
-                progressInLineAndCol(inPos - 2);
-
-                // Parse expression
-                const exprStart = outData.length;
-                must(parseExpression());
-                const exprCode = outData.substring(exprStart);
-                outData = outData.substring(0, exprStart);
-
-                textParts.push(exprCode);
-
-                // Manually consume } without consuming whitespace
-                if (inData[inPos] !== '}') must(false);
-                inPos++;
-                progressInLineAndCol(inPos - 1);
-            } else {
-                currentText += inData[inPos];
-                inPos++;
-            }
-        }
-
-        // Save final text
-        if (currentText) {
-            textParts.push(`'${currentText}'`);
-        }
-
-        progressInLineAndCol(saved.inPos);
-
-        // Emit concatenated parts or empty string
-        if (textParts.length > 0) {
-            emit(textParts.join('+'), false);
-        } else {
-            emit("''", false);
-        }
-        emit(')', false);
+        if (content) emit('`)');
+        else restoreState(saved);
 
         return true;
+    }
+
+    function parseAttribute() {
+        if (!read(':')) return false;
+        const name = JSON.stringify(must(read(IDENTIFIER)));
+        const op = must(read(TAG_OPERATOR));
+        parseAttributeValue(name, op, true);
+    }
+
+    function parseAttributeValue(nameJs: string, op: string, useExpression: boolean) {
+        const tr = REPLACE_TAG_OPERATORS[op];
+        if (tr) { // The '=' or '~' or ':' operator
+            emit(`.${tr}(${nameJs},`);
+        } else { // The '!' operator, for special attributes
+            if (!nameJs.match(CHECK_IDENTIFIER)) throw new ParseError(inPos, inLine, inCol, `Invalid special attribute identifier: '${nameJs}'`);
+            emit(`.${nameJs}(`);
+        }
+        if (useExpression) must(parseExpression());
+        else emit(must(readTagValue()));
+        emit(')');
     }
 
     function parseMethod(typeOnly: boolean, isDerived: boolean) {
