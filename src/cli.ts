@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --enable-source-maps
 import * as fs from 'fs';
 import * as path from 'path';
 import {tabscript} from "./tabscript.js";

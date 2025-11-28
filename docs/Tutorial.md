@@ -323,7 +323,7 @@ enum Direction { Up, Down, Left, Right }
 
 ## UI Tags (Optional)
 
-When using the `ui` feature flag in the header (`tabscript 1.0 ui=A`), you can use JSX-like syntax. This is designed primarily for Aberdeen.js.
+When using the `ui` feature flag in the header (`tabscript 1.0 ui=A`, where `A` is the symbol to use for the UI library), you can use JSX-like syntax. This is designed primarily for Aberdeen.js.
 
 ```tabscript
 tabscript 1.0 ui=A
@@ -357,14 +357,18 @@ tabscript 1.0 ui=A
 
 # Reactive block
 <div.item>
-	<h1>Title
-	console.log("reactive code")
+	<h1>Title ${proxiedData.title}
+	console.log("reactive code", proxiedData.summary)
 
-# Empty tag for text/reactive without element
+# Empty tag for text or reactive code without a parent element
 <>Hello world
 
 <>
 	updateState()
+
+<button>Click me!
+	<click = &||
+		console.log("Button clicked") 
 ```
 
 ## Try It Yourself

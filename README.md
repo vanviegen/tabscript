@@ -21,7 +21,7 @@ interface User
 	permissions: string[]
 
 processUsers := |users: User[]|
-	# Call the filter method using & syntax, so avoid parentheses
+	# Call the filter method using & syntax, to avoid parentheses
 	active := users.filter& |u| u.active and u.age >= 18
 
 	# The colon here causes `user` to be declared as a constant in the loop
@@ -30,18 +30,18 @@ processUsers := |users: User[]|
 			greet(user.name)
 ```
 
-Transpiles to clean TypeScript:
+Transpiles very much 1-on-1 to the following TypeScript:
 
 ```typescript
 const greet=(name:string)=>{
-        console.log( `Welcome, ${name}`);
+	console.log(`Welcome, ${name}`);
 };
 interface User{
-        name: string
-        age: number
-        active: boolean
-        role: string
-        permissions: string[]
+	name: string
+	age: number
+	active: boolean
+	role: string
+	permissions: string[]
 }
 const processUsers=(users:User[])=>{
 	const active=users.filter((u)=>u.active&&u.age >= 18);
@@ -75,7 +75,7 @@ tabscript input.tab --strip-types --output output.js
 - **Indentation-based syntax** - No braces required
 - **Shorthand operators** - `:` for const, `::` for let, `||` for function params, `&` for function calls
 - **Readable operators** - `and`/`or` instead of `&&`/`||`, strict equality by default
-- **Full TypeScript compatibility** - Complete type system support
+- **All of TypeScript** - Complete type system support
 - **VSCode extension** - Full IntelliSense and type checking
 - **Browser support** - Runtime transpilation for `.tab` files
 - **UI tag syntax** - Optional JSX-like syntax for frameworks like Aberdeen.js

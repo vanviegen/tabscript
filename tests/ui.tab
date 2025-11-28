@@ -14,7 +14,7 @@ tabscript 1.0 ui=A
 
 # Test properties
 x := 3
-<input value~${x}>
+<input value~&x>
 
 # Test styles
 <div color:red>
@@ -25,7 +25,7 @@ x := 3
 # Test combined
 array := [1, 2, 3]
 <div.row margin-top:10px>
-	<input type=text value~${x} placeholder="Enter text">
+	<input type=text value~&x placeholder="Enter text">
 	<button color:red>Submit
 
 # Test empty tag with text
@@ -56,10 +56,10 @@ for item: of array
 # Test multiple attributes and styles
 <input type=text name=username placeholder="Username" color:blue fontSize:14px>
 
-<input value=${true} placeholder="Test${42}">
+<input value=&true placeholder="Test${42}">
 
 tag := "d"+"iv"
-<${tag}>T${"ex"}t
+<&tag>T${"ex"}t
 
 <div><span><b>Hi mom
 
@@ -79,7 +79,7 @@ tag := "d"+"iv"
 <div.container color:red><span fontSize:12px>Nested text
 
 # Complex expression in attribute
-<input value=${x + y * 2}>
+<input value=& x + y * 2>
 
 # Empty string attribute
 <input placeholder="">
@@ -94,7 +94,7 @@ tag := "d"+"iv"
 <div>Hello 世界 🌍
 
 # Backticks and special chars in text
-<span>Use `code` here
+<span>Use `<code>` $here
 
 # Single quote in attribute value
 <input placeholder='Enter text'>
@@ -114,22 +114,22 @@ tag := "d"+"iv"
 # Tag followed by complex nested structure
 <div>
 	<span.label>Label:
-	<input type=text value~${val}>
+	<input type=text value~&val>
 
 # Mixed inline and block children
 <div><span>Inline
 <div>
 	<span>Block child
 	
-# Attributes
-<div>
+# Attributes, non-closing tags and using & for expressions as property values
+<div
 	if something
-		<.myclass>
-	:id = `test`
-	:data-value = 40 + 2
-	:click = ||
-		console.log("Clicked")
-	:destroy! ||
-		console.log("Destroyed")
+		<.myclass
+	<id=test
+	<data-value=& 40 + 2
+	<click=& ||
+		console.log& "Clicked"
+	<destroy!& ||
+		console.log& "Destroyed"
 	x := 42
-	:value ~ x
+	<value ~& x

@@ -187,7 +187,7 @@ export function tabscript(inData: string, options: Options = {}): {
         if (parseReturn() || parseThrow() || parseTypeDecl() || parseExport() || parseImport() || parseDoWhile()) {
         } else if (parseIfWhile() || parseFor() || parseTry() || parseFunction(true) || parseClass() || parseSwitch() || parseEnum() || parseDeclare()) {
             return true; // Statement parsed, but no need for semicolon
-        } else if (parseTag() || parseAttribute() || parseVarDecl() || parseExpressionSeq()) {
+        } else if (parseTag() || parseVarDecl() || parseExpressionSeq()) {
         } else {
             return false; // This is not a statement
         }
@@ -620,7 +620,7 @@ export function tabscript(inData: string, options: Options = {}): {
         return true;
     }
 
-    function parseExpression() {
+    function parseExpression(withinTag?: true) {
         // (3+4+test()) / c!.cnt++ as any
         let required = false;
         while(true) {
@@ -638,7 +638,7 @@ export function tabscript(inData: string, options: Options = {}): {
         else return false;
 
         let tmp;
-        while(true) {
+        while(inLastNewlinePos !== inPos) { // Break operator processing at the start of a new line (like after an indentend function)
             const lastNotSpace = inData[inPos-1]!==' ';
             // Function call '(' may not be preceded by a whitespace (to distinguish from `myFunc& a (3+4)` syntax)
             if (lastNotSpace && parseGroup({open: '(', close: ')', next: ','}, () => { // myFunc(a, b, ...rest)
@@ -668,11 +668,12 @@ export function tabscript(inData: string, options: Options = {}): {
             else if (eat('?.')) must(eat(IDENTIFIER) || parseIndex());
             else if (!peek('..') && eat('.')) must(eat(IDENTIFIER));
             else if (lastNotSpace && parseTemplateArg()) {}
+            else if (withinTag && peek('>')) return true; // within a `<tag prop=&expr>` we want '>' to be interpreted as closing tag
             else if (tmp = read(OPERATOR)) {
                 must(tmp[0]!=='%' || (tmp in REPLACE_OPERATORS));
                 emit(REPLACE_OPERATORS[tmp] || tmp);
                 eat('='); // Optional replacement operator (doesn't always make sense, but that's TypeScript's problem :-))
-                must(parseExpression);
+                must(parseExpression(withinTag));
                 return true;
             }
             else if (eatType('!')) {}
@@ -869,11 +870,10 @@ export function tabscript(inData: string, options: Options = {}): {
         return true;
     }
 
-    function readTagValue() {
-        if (read('${')) {
+    function readTagValueJs() {
+        if (read('&')) {
             const saved = getOutState();
-            must(parseExpression());
-            must(read('}'));
+            must(parseExpression(true));
             const expr = outData.slice(saved.outData.length);
             restoreState(saved);
             return expr;
@@ -904,82 +904,66 @@ export function tabscript(inData: string, options: Options = {}): {
 
         // Parse optional element name (can be IDENTIFIER or ${expr})
 
-        while(true) {
+        const startLine = inLine;
+        while(inLine === startLine) { // When a (function/class/..) expression value moves us to the next line, we stop parsing the tag
             if (read('.')) { // class
-                emit(`.c(${readTagValue()})`);
-            } else {
-                const name = readTagValue();
-                if (!name) break;
+                emit(`.c(${readTagValueJs()})`);
+                continue;
+            }
 
-                const op = read(TAG_OPERATOR);
-                if (op) {
-                    parseAttributeValue(name, op, false);
-                } else { // Create an element
-                    emit(`.e(${name})`);
+            const special = read(IDENTIFIER, '!');
+            if (special) { // Special attribute
+                emit(`.${special[0]}(`);
+                emit(must(readTagValueJs()));
+                emit(')');
+                continue;
+            }
+
+            const nameJs = readTagValueJs(); // Attribute or tag
+            if (!nameJs) break;
+
+            const op = read(TAG_OPERATOR);
+            if (op) { // Attribute with operator
+                const tr = must(REPLACE_TAG_OPERATORS[op]);
+                emit(`.${tr}(${nameJs},`);
+                emit(must(readTagValueJs()));
+                emit(')');
+                continue;
+            }
+            
+            // Create an element
+            emit(`.e(${nameJs})`);
+        }
+
+        if (read('>')) { // Closing is optional (but needed for chaining and text content)
+
+            // Optional chaining of tags
+            if (parseTag(true)) return true;
+
+            // Optional text content
+            if (!peek("\n")) { // This peek is just a performance optimization
+                const saved = getOutState();
+                emit('.t(`');
+                let content = false;
+                while(true) {
+                    const rest = read(REST_OF_LINE_OR_INTERPOLATE);
+                    if (!rest) break;
+                    emit(rest.replace(/\\|`/g, '\\$&')); // escape backtick and backslash in output
+                    content = true;
+                    if (rest.slice(-1) !== '${') break; // End of line
+                    // Interpolation
+                    must(parseExpression());
+                    must(read('}'));
                 }
+                if (content) emit('`)');
+                else restoreState(saved);
             }
         }
 
-        must(read('>'));
-
-        // Optional chaining of tags
-        if (parseTag(true)) return true;
-
-        // Optional text content
-        const str = read(STRING);
-        if (str) {
-            emit(`.t(${str})`);
-            return true;
-        }
-
-        if (peek('`')) {
-            emit('.t(');
-            must(parseBacktickString);
-            emit(')');
-            return true;
-        }
-
-        if (parseGroup({jsOpen: '.f(function(){', jsClose: '})', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement))) {
-            return true;
-        }
-
-        const saved = getOutState();
-        emit('.t(`');
-        let content = false;
-        while(true) {
-            const rest = read(REST_OF_LINE_OR_INTERPOLATE);
-            if (!rest) break;
-            emit(rest.replace(/\\|`/g, '\\$&')); // escape backtick and backslash in output
-            content = true;
-            if (rest.slice(-1) !== '${') break; // End of line
-            // Interpolation
-            must(parseExpression());
-            must(read('}'));
-        }
-        if (content) emit('`)');
-        else restoreState(saved);
+        // Optional child block
+        parseGroup({jsOpen: '.f(function(){', jsClose: '})', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement));
 
         return true;
-    }
-
-    function parseAttribute() {
-        if (!read(':')) return false;
-        const name = JSON.stringify(must(read(IDENTIFIER)));
-        const op = must(read(TAG_OPERATOR));
-        parseAttributeValue(name, op, true);
-    }
-
-    function parseAttributeValue(nameJs: string, op: string, useExpression: boolean) {
-        const tr = REPLACE_TAG_OPERATORS[op];
-        if (tr) { // The '=' or '~' or ':' operator
-            emit(`.${tr}(${nameJs},`);
-        } else { // The '!' operator, for special attributes
-            if (!nameJs.match(CHECK_IDENTIFIER)) throw new ParseError(inPos, inLine, inCol, `Invalid special attribute identifier: '${nameJs}'`);
-            emit(`.${nameJs}(`);
-        }
-        if (useExpression) must(parseExpression());
-        else emit(must(readTagValue()));
-        emit(')');
     }
 
     function parseMethod(typeOnly: boolean, isDerived: boolean) {

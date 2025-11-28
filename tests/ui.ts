@@ -94,7 +94,7 @@ A.e("div").c("my-very-long-class-name-here").s("margin-top","10px").s("padding-l
 A.e("div").t(`Hello 世界 🌍`);
 
 
-A.e("span").t(`Use \`code\` here`);
+A.e("span").t(`Use \`<code>\` $here`);
 
 
 A.e("input").a("placeholder",'Enter text');
@@ -119,4 +119,19 @@ A.e("div").f(function(){
 
 A.e("div").e("span").t(`Inline`);
 A.e("div").f(function(){
-	A.e("span").t(`Block child`);});
+	A.e("span").t(`Block child`);
+});
+
+A.e("div").f(function(){
+	if(something){
+		A.c("myclass");}
+	A.a("id","test");
+	A.a("data-value",40+2);
+	A.a("click",()=>{
+		console.log( "Clicked");});
+
+	A.destroy(( )=>{
+		console.log( "Destroyed");});
+
+	const x=42;
+	A.p("value",x);});
