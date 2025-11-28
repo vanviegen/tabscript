@@ -323,53 +323,225 @@ enum Direction { Up, Down, Left, Right }
 
 ## UI Tags (Optional)
 
-When using the `ui` feature flag in the header (`tabscript 1.0 ui=A`, where `A` is the symbol to use for the UI library), you can use JSX-like syntax. This is designed primarily for Aberdeen.js.
+When using the `ui` feature flag in the header (`tabscript 1.0 ui=A`, where `A` is the symbol to use for the UI library), you can use a JSX-like syntax that transpiles to method chains. This feature is designed specifically for Aberdeen.js, but may be adaptable to other frameworks.
+
+### Enabling UI Tags
+
+Add `ui=A` to your header (replace `A` with your library's identifier):
+
+```tabscript
+tabscript 1.0 ui=A
+```
+
+### Basic Elements
+
+Create elements with `<tagname>`:
+
+```tabscript
+<div>      # transpiles to: A.e("div")
+<button>   # transpiles to: A.e("button")
+```
+
+Tags transpile to method calls on the library object. `<div>` becomes `A.e("div")`, where `.e()` creates an element.
+
+### CSS Classes
+
+Add classes with dot syntax:
+
+```tabscript
+<div.container>           # A.e("div").c("container")
+<div.row.active>          # A.e("div").c("row").c("active")
+<.button>                 # A.c("button")  (no element)
+```
+
+Each `.classname` transpiles to a `.c("classname")` call. You can omit the tag name to just add classes to the current context.
+
+### Attributes, Properties, and Styles
+
+Use operators after names to specify what kind of value you're setting:
+
+```tabscript
+# Attributes (=)
+<input type=text placeholder="Enter name">
+# A.e("input").a("type","text").a("placeholder","Enter name")
+
+# Properties (~)
+<input value~42>
+# A.e("input").p("value",42)
+
+# Styles (:)
+<div color:red fontSize:16px>
+# A.e("div").s("color","red").s("fontSize","16px")
+```
+
+The operators determine which method is called:
+- `=` → `.a()` for HTML attributes
+- `~` → `.p()` for DOM properties
+- `:` → `.s()` for inline CSS styles
+
+Values containing spaces must be quoted. When quoting with backticks, interpolation may be used.
+
+### Expression Values with &
+
+Use `&` to pass expressions instead of string literals:
+
+```tabscript
+<input value=&true placeholder="Test${42}">
+# A.e("input").a("value",true).a("placeholder","Test${42}")
+
+<div id=& "item-" + index>
+# A.e("div").a("id","item-"+index)
+```
+
+Without `&`, values are treated as literals (like `type=text`). With `&`, you can use any TabScript expression.
+
+### Text Content
+
+Text after `>` becomes text content:
+
+```tabscript
+<button>Submit
+# A.e("button").t(`Submit`)
+
+<span>Count: ${count}
+# A.e("span").t(`Count: ${count}`)
+```
+
+Text transpiles to `.t()` with backtick strings that preserve interpolation.
+
+### Chaining Tags Inline
+
+Chain multiple tags on the same line:
+
+```tabscript
+<div><span><b>Bold text
+# A.e("div").e("span").e("b").t(`Bold text`)
+```
+
+This creates nested elements: chained `.e()` calls create parent-child relationships.
+
+### Reactive Blocks
+
+Indent after a tag to create a reactive block:
+
+```tabscript
+<div.container>
+	<h1>Title
+	<p>Paragraph
+	console.log("reactive update")
+```
+
+Transpiles to:
+
+```typescript
+A.e("div").c("container").f(function(){
+	A.e("h1").t(`Title`);
+	A.e("p").t(`Paragraph`);
+	console.log("reactive update");
+});
+```
+
+The indented block becomes a function passed to `.f()`, which reactive libraries use to track dependencies.
+
+### Non-Closing Tags
+
+Use `<` at the start of a line to add attributes without creating a new element:
+
+```tabscript
+<div
+	<id=myDiv
+	if weFeelLikeIt()
+		<data-value=& 40 + 2
+	<click=& ||
+		console.log("Clicked")
+```
+
+Transpiles to:
+
+```typescript
+A.e("div").f(function(){
+	A.a("id","myDiv");
+	A.a("data-value",40+2);
+	A.a("click",()=>{
+		console.log("Clicked");});
+});
+```
+
+This lets you add attributes across multiple lines without repeating the element name.
+
+### Special Attributes
+
+Use an identifier followed by `!` for special lifecycle methods:
+
+```tabscript
+<div
+	<destroy!& ||
+		console.log("Cleanup")
+```
+
+Transpiles to:
+
+```typescript
+A.e("div").f(function(){
+	A.destroy(()=>{
+		console.log("Cleanup");});
+});
+```
+
+The identifier before `!` becomes the method name on the library object.
+
+### Empty Tags (Fragments)
+
+Use `<>` for text or code without a wrapping element:
+
+```tabscript
+<>Hello world
+# A.t(`Hello world`)
+
+<>
+	doReactiveCode()
+	<span>Nested content
+```
+
+Transpiles to:
+
+```typescript
+A.f(function(){
+	doReactiveCode();
+	A.e("span").t(`Nested content`);
+});
+```
+
+This is useful for reactive blocks that don't need a DOM element wrapper.
+
+### Dynamic Tag Names
+
+Use `&` after `<` to compute the tag name:
+
+```tabscript
+tag := "div"
+<&tag>Content
+# A.e(tag).t(`Content`)
+```
+
+### Complete Example
 
 ```tabscript
 tabscript 1.0 ui=A
 
-# Create element
-<div>
+items := ["Apple", "Banana", "Cherry"]
 
-# Element with CSS class
 <div.container>
-
-# Multiple classes
-<div.row.active>
-
-# Attributes
-<input type=text>
-
-# Property binding
-<input value~${x}>
-
-# Inline styles
-<div color:red>
-
-# Text content
-<button>Submit
-
-# Text with interpolation
-<span>Count: ${count}
-
-# Chained inline tags
-<div><span><b>Bold text
-
-# Reactive block
-<div.item>
-	<h1>Title ${proxiedData.title}
-	console.log("reactive code", proxiedData.summary)
-
-# Empty tag for text or reactive code without a parent element
-<>Hello world
-
-<>
-	updateState()
-
-<button>Click me!
-	<click = &||
-		console.log("Button clicked") 
+	<h1.title color:blue>Shopping List
+	<ul.items>
+		for item: of items
+			<li.item>
+				<span>${item}
+				<button fontSize:12px>Remove
+					<click=& || removeItem& item>
 ```
+
+Transpiles to method chains that reactive libraries can use to build and update the UI efficiently.
 
 ## Try It Yourself
 
