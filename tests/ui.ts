@@ -43,9 +43,6 @@ A.c("some-class");
 A.c("another-class").s("fontSize","32");
 
 
-const result=A.e("div").c("item");
-
-
 for(const item of array){
 	A.e("div").c("row").f(function(){
 		A.e("span").t(`${item}`);
@@ -54,7 +51,7 @@ for(const item of array){
 A.e("div").e("span").t(`Text`);
 
 
-A.e("input").a("type","text").a("name","username").a("placeholder","Username").s("color","blue").s("fontSize","14px");
+A.e("input").a("type","text").a("name","username").a("placeholder","Your name").s("color","blue").s("fontSize","14px");
 
 A.e("input").a("value",true).a("placeholder","Test${42}");
 
@@ -94,7 +91,7 @@ A.e("div").c("my-very-long-class-name-here").s("margin-top","10px").s("padding-l
 A.e("div").t(`Hello 世界 🌍`);
 
 
-A.e("span").t(`Use \`<code>\` $here`);
+A.e("span").t(`Use \`<code>\` :span $here`);
 
 
 A.e("input").a("placeholder",'Enter text');

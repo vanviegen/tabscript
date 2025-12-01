@@ -61,14 +61,14 @@ tabscript 1.0 ui=A
 
 items := ["Apple", "Banana", "Cherry"]
 
-<div.container>
-	<h1 color:blue>Shopping List
-	<ul>
+:div.container
+	:h1 color:blue |Shopping List
+	:ul
 		for item: of items
-			<li><span>${item}
+			:li :span |${item}
 ```
 
-Note how `<tags>` are statements, so they can be intermixed with control flow.
+Note how `:tags` are statements, so they can be intermixed with control flow.
 
 Transpiles to method chains:
 

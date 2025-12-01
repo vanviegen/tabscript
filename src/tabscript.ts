@@ -37,14 +37,13 @@ const
     WITHIN_BACKTICK_STRING = descr(/[\s\S]*?(\${|`)/y, "`string`"),
     EXPRESSION_PREFIX = descr(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b|new\b/y, "unary-op"),
     REGEXP = descr(/\/(\\.|[^\/])+\/[gimsuyd]*/y, "regexp"),
-    TAG_LITERAL = descr(/([0-9a-zA-Z_$\-]+)/y, "tag-literal"),
+    TAG_LITERAL = descr(/([0-9a-zA-Z_\-]+)/y, "tag-literal"),
     TAG_OPERATOR = descr(/[=~!:]/y, "tag-operator"),
 // Other regexes
     ANYTHING = /[\s\S]/y,
     ALPHA_NUM = /^[a-zA-Z0-9]+$/,
     START_WORD_CHAR = /^[a-zA-Z0-9_$]/,
-    IS_WORD_CHAR = /^[a-zA-Z0-9_$]$/,
-    CHECK_IDENTIFIER = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/ // Same as IDENTIFIER but without the /y flag
+    IS_WORD_CHAR = /^[a-zA-Z0-9_$]$/
     ;
 
 const REPLACE_TAG_OPERATORS : Record<string, string> = {
@@ -184,10 +183,10 @@ export function tabscript(inData: string, options: Options = {}): {
     function parseStatement() {
         // if (a==3) throw new Error();
         const orgOutLen = outData.length;
-        if (parseReturn() || parseThrow() || parseTypeDecl() || parseExport() || parseImport() || parseDoWhile()) {
+        if (parseMarkup() || parseMarkupText() || parseReturn() || parseThrow() || parseTypeDecl() || parseExport() || parseImport() || parseDoWhile()) {
         } else if (parseIfWhile() || parseFor() || parseTry() || parseFunction(true) || parseClass() || parseSwitch() || parseEnum() || parseDeclare()) {
-            return true; // Statement parsed, but no need for semicolon
-        } else if (parseTag() || parseVarDecl() || parseExpressionSeq()) {
+            return true; // Statement parsed, but no need for semicolon in output
+        } else if (parseVarDecl() || parseExpressionSeq()) {
         } else {
             return false; // This is not a statement
         }
@@ -633,7 +632,7 @@ export function tabscript(inData: string, options: Options = {}): {
         
         // IDENTIFIER also covers things like `break` and `continue`
         // parseTag() must come before parseFunction() to avoid confusion with template parameters
-        if (parseClass() || parseTag() || parseFunction() || eat(IDENTIFIER) || parseLiteralArray() || parseLiteralObject() || eat(STRING) || parseBacktickString() || eat(NUMBER) || parseParenthesised() || eat(REGEXP)) {}
+        if (parseClass() || parseMarkup() || parseFunction() || eat(IDENTIFIER) || parseLiteralArray() || parseLiteralObject() || eat(STRING) || parseBacktickString() || eat(NUMBER) || parseParenthesised() || eat(REGEXP)) {}
         else if (required) must(false);
         else return false;
 
@@ -871,7 +870,7 @@ export function tabscript(inData: string, options: Options = {}): {
     }
 
     function readTagValueJs() {
-        if (read('&')) {
+        if (read('$')) {
             const saved = getOutState();
             must(parseExpression(true));
             const expr = outData.slice(saved.outData.length);
@@ -893,19 +892,20 @@ export function tabscript(inData: string, options: Options = {}): {
         return read(STRING);
     }
 
-    function parseTag(isChained = false) {
+    function parseMarkup(isChained = false) {
         // Only parse tags when ui option is enabled
         if (!ui) return false;
 
-        // At statement start, < can only be a tag
-        if (!read('<')) return false;
+        // A statement starting with : can only mean markup
+        if (!read(':')) return false;
 
+        // Add the library name if we're not chaining
         if (!isChained) emit(ui);
 
         // Parse optional element name (can be IDENTIFIER or ${expr})
 
         const startLine = inLine;
-        while(inLine === startLine) { // When a (function/class/..) expression value moves us to the next line, we stop parsing the tag
+        while(inLine === startLine) { // When a (function/class/..) expression value moves us to the next line, we stop parsing markup
             if (read('.')) { // class
                 emit(`.c(${readTagValueJs()})`);
                 continue;
@@ -935,34 +935,36 @@ export function tabscript(inData: string, options: Options = {}): {
             emit(`.e(${nameJs})`);
         }
 
-        if (read('>')) { // Closing is optional (but needed for chaining and text content)
-
-            // Optional chaining of tags
-            if (parseTag(true)) return true;
-
-            // Optional text content
-            if (!peek("\n")) { // This peek is just a performance optimization
-                const saved = getOutState();
-                emit('.t(`');
-                let content = false;
-                while(true) {
-                    const rest = read(REST_OF_LINE_OR_INTERPOLATE);
-                    if (!rest) break;
-                    emit(rest.replace(/\\|`/g, '\\$&')); // escape backtick and backslash in output
-                    content = true;
-                    if (rest.slice(-1) !== '${') break; // End of line
-                    // Interpolation
-                    must(parseExpression());
-                    must(read('}'));
-                }
-                if (content) emit('`)');
-                else restoreState(saved);
-            }
-        }
+        parseMarkupText(true);
 
         // Optional child block
         parseGroup({jsOpen: '.f(function(){', jsClose: '})', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement));
 
+        return true;
+    }
+
+    function parseMarkupText(isChained = false) {
+        // Only parse markup when ui option is enabled
+        if (!ui) return false;
+
+        // A statement starting with : can only mean markup text
+        if (!read('|')) return false;
+        
+        // Add the library name if we're not chaining
+        if (!isChained) emit(ui);
+
+        // Text content till the end of the line
+        emit('.t(`');
+        while(true) {
+            const rest = read(REST_OF_LINE_OR_INTERPOLATE);
+            if (!rest) break;
+            emit(rest.replace(/\\|`/g, '\\$&')); // escape backtick and backslash in output
+            if (rest.slice(-1) !== '${') break; // End of line
+            // Interpolation
+            must(parseExpression());
+            must(read('}'));
+        }
+        emit('`)');
         return true;
     }
 

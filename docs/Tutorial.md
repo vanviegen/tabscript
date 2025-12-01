@@ -335,26 +335,26 @@ tabscript 1.0 ui=A
 
 ### Basic Elements
 
-Create elements with `<tagname>`:
+Create elements with `:tagname`:
 
 ```tabscript
-<div>      # transpiles to: A.e("div")
-<button>   # transpiles to: A.e("button")
+:div      # transpiles to: A.e("div");
+:button   # transpiles to: A.e("button");
 ```
 
-Tags transpile to method calls on the library object. `<div>` becomes `A.e("div")`, where `.e()` creates an element.
+Tags transpile to method calls on the library object. `:div` becomes `A.e("div")`, where `.e()` creates an element.
 
 ### CSS Classes
 
 Add classes with dot syntax:
 
 ```tabscript
-<div.container>           # A.e("div").c("container")
-<div.row.active>          # A.e("div").c("row").c("active")
-<.button>                 # A.c("button")  (no element)
+:div.container           # A.e("div").c("container");
+:div.row.active          # A.e("div").c("row").c("active");
+:.button                 # A.c("button")  (applies to current parent);
 ```
 
-Each `.classname` transpiles to a `.c("classname")` call. You can omit the tag name to just add classes to the current context.
+Each `.classname` transpiles to a `.c("classname")` call. You can omit the tag name to just add classes to the current context parent.
 
 ### Attributes, Properties, and Styles
 
@@ -362,16 +362,16 @@ Use operators after names to specify what kind of value you're setting:
 
 ```tabscript
 # Attributes (=)
-<input type=text placeholder="Enter name">
-# A.e("input").a("type","text").a("placeholder","Enter name")
+:input type=text placeholder="Enter name"
+# A.e("input").a("type","text").a("placeholder","Enter name");
 
 # Properties (~)
-<input value~42>
-# A.e("input").p("value",42)
+:input value~42
+# A.e("input").p("value",42);
 
 # Styles (:)
-<div color:red fontSize:16px>
-# A.e("div").s("color","red").s("fontSize","16px")
+:div color:red fontSize:16px
+# A.e("div").s("color","red").s("fontSize","16px");
 ```
 
 The operators determine which method is called:
@@ -381,30 +381,33 @@ The operators determine which method is called:
 
 Values containing spaces must be quoted. When quoting with backticks, interpolation may be used.
 
-### Expression Values with &
+### Expression Values with $
 
-Use `&` to pass expressions instead of string literals:
+Use `$` to pass expressions instead of string literals:
 
 ```tabscript
-<input value=&true placeholder="Test${42}">
-# A.e("input").a("value",true).a("placeholder","Test${42}")
+:input value=$true placeholder="Test${42}">
+# A.e("input").a("value",true).a("placeholder","Test${42}");
 
-<div id=& "item-" + index>
-# A.e("div").a("id","item-"+index)
+:div id =$ "item-" + index
+# A.e("div").a("id","item-"+index);
 ```
 
-Without `&`, values are treated as literals (like `type=text`). With `&`, you can use any TabScript expression.
+Without `$`, values are treated as literals (like `type=text`). With `$`, you can use any TabScript expression.
 
 ### Text Content
 
-Text after `>` becomes text content:
+Text after `|` (until the end of the line) becomes text content:
 
 ```tabscript
-<button>Submit
-# A.e("button").t(`Submit`)
+:button |Submit
+# A.e("button").t(`Submit`);
 
-<span>Count: ${count}
-# A.e("span").t(`Count: ${count}`)
+:span |Count: ${count}
+# A.e("span").t(`Count: ${count}`);
+
+|Text on a line of its own
+# A.t(`Text on a line of its own`);
 ```
 
 Text transpiles to `.t()` with backtick strings that preserve interpolation.
@@ -414,8 +417,8 @@ Text transpiles to `.t()` with backtick strings that preserve interpolation.
 Chain multiple tags on the same line:
 
 ```tabscript
-<div><span><b>Bold text
-# A.e("div").e("span").e("b").t(`Bold text`)
+:div span b |Bold text
+# A.e("div").e("span").e("b").t(`Bold text`);
 ```
 
 This creates nested elements: chained `.e()` calls create parent-child relationships.
@@ -425,9 +428,9 @@ This creates nested elements: chained `.e()` calls create parent-child relations
 Indent after a tag to create a reactive block:
 
 ```tabscript
-<div.container>
-	<h1>Title
-	<p>Paragraph
+:div.container
+	:h1 |Title
+	:p |Paragraph
 	console.log("reactive update")
 ```
 
@@ -443,16 +446,17 @@ A.e("div").c("container").f(function(){
 
 The indented block becomes a function passed to `.f()`, which reactive libraries use to track dependencies.
 
-### Non-Closing Tags
+### Markup blocks without element creation
 
-Use `<` at the start of a line to add attributes without creating a new element:
+The markup operator `|` doesn't need to be followed by a tag name to be instantiated. It can also just contain attributes/properties/styles to be applied to the current parent element.
 
 ```tabscript
-<div
-	<id=myDiv
+:div
+	# All of these apply to the div above
+	:id=myDiv
 	if weFeelLikeIt()
-		<data-value=& 40 + 2
-	<click=& ||
+		:data-value =$ 40 + 2
+	:click =$ ||
 		console.log("Clicked")
 ```
 
@@ -474,8 +478,8 @@ This lets you add attributes across multiple lines without repeating the element
 Use an identifier followed by `!` for special lifecycle methods:
 
 ```tabscript
-<div
-	<destroy!& ||
+:div
+	:destroy!$ ||
 		console.log("Cleanup")
 ```
 
@@ -516,11 +520,11 @@ This is useful for reactive blocks that don't need a DOM element wrapper.
 
 ### Dynamic Tag Names
 
-Use `&` after `<` to compute the tag name:
+Use `$` after `:` to use an expression as the tag name:
 
 ```tabscript
 tag := "div"
-<&tag>Content
+:$tag |Content
 # A.e(tag).t(`Content`)
 ```
 
@@ -531,14 +535,15 @@ tabscript 1.0 ui=A
 
 items := ["Apple", "Banana", "Cherry"]
 
-<div.container>
-	<h1.title color:blue>Shopping List
-	<ul.items>
+:div.container
+	:h1.title color:blue |Shopping List
+	:ul.items
 		for item: of items
-			<li.item>
-				<span>${item}
-				<button fontSize:12px>Remove
-					<click=& || removeItem& item>
+			:li.item
+				:span ${item}
+				:button fontSize:12px
+					|Remove
+					:click =$ || removeItem& item
 ```
 
 Transpiles to method chains that reactive libraries can use to build and update the UI efficiently.
