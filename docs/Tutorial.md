@@ -338,87 +338,118 @@ tabscript 1.0 ui=A
 Create elements with `:tagname`:
 
 ```tabscript
-:div      # transpiles to: A.e("div");
-:button   # transpiles to: A.e("button");
+:div      # transpiles to: A.e(`div`);
+:button   # transpiles to: A.e(`button`);
 ```
 
 Tags transpile to method calls on the library object. `:div` becomes `A.e("div")`, where `.e()` creates an element.
 
-### CSS Classes
-
-Add classes with dot syntax:
-
-```tabscript
-:div.container           # A.e("div").c("container");
-:div.row.active          # A.e("div").c("row").c("active");
-:.button                 # A.c("button")  (applies to current parent);
-```
-
-Each `.classname` transpiles to a `.c("classname")` call. You can omit the tag name to just add classes to the current context parent.
-
-### Attributes, Properties, and Styles
-
-Use operators after names to specify what kind of value you're setting:
-
-```tabscript
-# Attributes (=)
-:input type=text placeholder="Enter name"
-# A.e("input").a("type","text").a("placeholder","Enter name");
-
-# Properties (~)
-:input value~42
-# A.e("input").p("value",42);
-
-# Styles (:)
-:div color:red fontSize:16px
-# A.e("div").s("color","red").s("fontSize","16px");
-```
-
-The operators determine which method is called:
-- `=` → `.a()` for HTML attributes
-- `~` → `.p()` for DOM properties
-- `:` → `.s()` for inline CSS styles
-
-Values containing spaces must be quoted. When quoting with backticks, interpolation may be used.
-
-### Expression Values with $
-
-Use `$` to pass expressions instead of string literals:
-
-```tabscript
-:input value=$true placeholder="Test${42}">
-# A.e("input").a("value",true).a("placeholder","Test${42}");
-
-:div id =$ "item-" + index
-# A.e("div").a("id","item-"+index);
-```
-
-Without `$`, values are treated as literals (like `type=text`). With `$`, you can use any TabScript expression.
-
 ### Text Content
 
-Text after `|` (until the end of the line) becomes text content:
+Use quoted strings (single, double, or backtick) for text content:
 
 ```tabscript
-:button |Submit
-# A.e("button").t(`Submit`);
+:button "Submit"
+# A.e(`button`).t("Submit");
 
-:span |Count: ${count}
-# A.e("span").t(`Count: ${count}`);
-
-|Text on a line of its own
-# A.t(`Text on a line of its own`);
+count := 5
+:span `You have ${count} items`
+# A.e(`span`).t(`You have ${count} items`);
 ```
 
-Text transpiles to `.t()` with backtick strings that preserve interpolation.
+Text transpiles to `.t()`. Use backticks for interpolation.
+
+### Attributes (=)
+
+Set HTML attributes with `=`. Values are **strings** — unquoted literals or quoted strings:
+
+```tabscript
+:input type=text placeholder="Enter your name" required=true
+# A.e(`input`).a(`type`,`text`).a(`placeholder`,"Enter your name").a(`required`,`true`);
+
+id := 5
+:div data-id=item-${id}
+# A.e(`div`).a(`data-id`,`item-${id}`);
+```
+
+Unquoted values (as well as backtick strings) support `${}` interpolation. Use quotes for values with spaces.
+
+### Classes (.)
+
+Add CSS classes with dot syntax. Values are **strings**:
+
+```tabscript
+:div.container.flex
+# A.e(`div`).c(`container`).c(`flex`);
+
+:.hidden
+# A.c(`hidden`);  (applies to current parent)
+```
+
+### Styles (:)
+
+Set inline CSS styles with `:`. Values are **strings** — unquoted or quoted:
+
+```tabscript
+:div color:red fontSize:14px
+# A.e(`div`).s(`color`,`red`).s(`fontSize`,`14px`);
+
+padding := 20
+:div margin:${padding}px padding:${padding / 2}px
+# A.e(`div`).s(`margin`,`${padding}px`).s(`padding`,`${padding / 2}px`);
+```
+
+### Properties (~)
+
+Set DOM properties with `~`. Values are **expressions** — evaluated directly:
+
+```tabscript
+checked := true
+:input type=checkbox checked~checked
+# A.e(`input`).a(`type`,`checkbox`).p(`checked`,checked);
+
+:input value~getUserInput()
+# A.e(`input`).p(`value`,getUserInput());
+```
+
+Use properties for values that need to be their actual type (boolean, number, object), not strings.
+
+### Event Handlers (@)
+
+Attach event listeners with `@`. Values are **expressions** (typically functions):
+
+```tabscript
+:button "Save" :click@ || saveData()
+# A.e(`button`).t("Save").l(`click`,()=>saveData());
+
+:input :input@ |e| updateSearch(e.target.value)
+# A.e(`input`).l(`input`,(e)=>updateSearch(e.target.value));
+```
+
+### Special Methods (!)
+
+Call library-specific methods with `!`. Values are **expressions**:
+
+```tabscript
+:div
+	:destroy! || cleanup()
+# A.e(`div`).f(function(){A.destroy(()=>cleanup());});
+
+:input destroy! ||
+	console.log("Custom destroy handler (for transitions)")
+# A.e(`input`).destroy(()=>{
+#	console.log("Custom destroy handler (for transitions)");});
+```
+
+The identifier before `!` becomes the method name called on the library object. They must accept a single expression as an argument.
 
 ### Chaining Tags Inline
 
 Chain multiple tags on the same line:
 
 ```tabscript
-:div span b |Bold text
-# A.e("div").e("span").e("b").t(`Bold text`);
+:div span b "Bold text"
+# A.e(`div`).e(`span`).e(`b`).t("Bold text");
 ```
 
 This creates nested elements: chained `.e()` calls create parent-child relationships.
@@ -429,103 +460,59 @@ Indent after a tag to create a reactive block:
 
 ```tabscript
 :div.container
-	:h1 |Title
-	:p |Paragraph
+	:h1 "Title"
+	:p "Paragraph"
 	console.log("reactive update")
 ```
 
 Transpiles to:
 
 ```typescript
-A.e("div").c("container").f(function(){
-	A.e("h1").t(`Title`);
-	A.e("p").t(`Paragraph`);
+A.e(`div`).c(`container`).f(function(){
+	A.e(`h1`).t("Title");
+	A.e(`p`).t("Paragraph");
 	console.log("reactive update");
 });
 ```
 
 The indented block becomes a function passed to `.f()`, which reactive libraries use to track dependencies.
 
-### Markup blocks without element creation
+### Markup Blocks Without Element Creation
 
-The markup operator `|` doesn't need to be followed by a tag name to be instantiated. It can also just contain attributes/properties/styles to be applied to the current parent element.
+A lone `:` can contain attributes/properties/styles to be applied to the current parent element:
 
 ```tabscript
 :div
 	# All of these apply to the div above
-	:id=myDiv
+	:id = myDiv
 	if weFeelLikeIt()
-		:data-value =$ 40 + 2
-	:click =$ ||
+		:data-value = ${40 + 2}
+	:click@ ||
 		console.log("Clicked")
 ```
 
 Transpiles to:
 
 ```typescript
-A.e("div").f(function(){
-	A.a("id","myDiv");
-	A.a("data-value",40+2);
-	A.a("click",()=>{
+A.e(`div`).f(function(){
+	A.a(`id`,`myDiv`);
+	if(weFeelLikeIt()){
+		A.a(`data-value`,`${40 + 2}`);}
+	A.l(`click`,()=>{
 		console.log("Clicked");});
 });
 ```
 
 This lets you add attributes across multiple lines without repeating the element name.
 
-### Special Attributes
-
-Use an identifier followed by `!` for special lifecycle methods:
-
-```tabscript
-:div
-	:destroy!$ ||
-		console.log("Cleanup")
-```
-
-Transpiles to:
-
-```typescript
-A.e("div").f(function(){
-	A.destroy(()=>{
-		console.log("Cleanup");});
-});
-```
-
-The identifier before `!` becomes the method name on the library object.
-
-### Empty Tags (Fragments)
-
-Use `<>` for text or code without a wrapping element:
-
-```tabscript
-<>Hello world
-# A.t(`Hello world`)
-
-<>
-	doReactiveCode()
-	<span>Nested content
-```
-
-Transpiles to:
-
-```typescript
-A.f(function(){
-	doReactiveCode();
-	A.e("span").t(`Nested content`);
-});
-```
-
-This is useful for reactive blocks that don't need a DOM element wrapper.
-
 ### Dynamic Tag Names
 
-Use `$` after `:` to use an expression as the tag name:
+Use `${}` interpolation to use an expression as the tag name:
 
 ```tabscript
 tag := "div"
-:$tag |Content
-# A.e(tag).t(`Content`)
+:${tag} "Content"
+# A.e(`${tag}`).t("Content");
 ```
 
 ### Complete Example
@@ -536,14 +523,12 @@ tabscript 1.0 ui=A
 items := ["Apple", "Banana", "Cherry"]
 
 :div.container
-	:h1.title color:blue |Shopping List
+	:h1.title color:blue "Shopping List"
 	:ul.items
 		for item: of items
 			:li.item
-				:span ${item}
-				:button fontSize:12px
-					|Remove
-					:click =$ || removeItem& item
+				:span `${item}`
+				:button fontSize:12px "Remove" :click@ || removeItem& item
 ```
 
 Transpiles to method chains that reactive libraries can use to build and update the UI efficiently.

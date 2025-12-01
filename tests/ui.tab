@@ -1,4 +1,5 @@
 tabscript 1.0 ui=A
+A := {} as any
 
 # Test basic element
 :div
@@ -14,7 +15,7 @@ tabscript 1.0 ui=A
 
 # Test properties
 x := 3
-:input value~$x
+:input value~x
 
 # Test styles
 :div color:red
@@ -24,17 +25,18 @@ x := 3
 
 # Test combined
 array := [1, 2, 3]
-:div.row margin-top:10px
-	:input type=text value~$x placeholder="Enter text"
-	:button color:red |Submit
+size := 12
+:div.row margin-top:${size * 2}px
+	:input type=text value~x placeholder="Enter text"
+	:button color:red "Submit"
 
 # Test empty tag with text
 variable := "world"
-|Some text ${variable} more text
+:"Some text ${variable} more text"
 
 # Test empty tag with block
 :
-	doReactiveThings()
+	console.log& "do reactive things"
 
 # Test property-only class
 :.some-class
@@ -45,26 +47,26 @@ variable := "world"
 # Test in loop
 for item: of array
 	:div.row
-		:span |${item}
-
+		:span `Item #${item.id}: ${item.name}`
+	
 # Test nested tags on same line
-:div span |Text
+:div span "Text"
 
 # Test multiple attributes and styles
 :input type=text name=username placeholder="Your name" color:blue fontSize:14px
 
-:input value=$true placeholder="Test${42}"
+:input value~true placeholder=`Test${42}`
 
 tag := "d"+"iv"
-:$tag |T${"ex"}t
+:${tag} `T${'e'+'x'}t`
 
-:div span b |Hi mom
+:div span b "Hi mom"
 
 :div span b
-	|Hi dad
+	:"Hi dad"
 
 # Stress tests - special characters in text
-:div |Text with "quotes" and 'apostrophes'
+:div "Text with \"quotes\" and 'apostrophes'"
 
 # Special characters in attribute values
 :input placeholder="Enter \"quoted\" text"
@@ -73,10 +75,11 @@ tag := "d"+"iv"
 :div title="This is a title"
 
 # Multiple properties on chained tags
-:div.container color:red span fontSize:12px |Nested text
+:div.container color:red span fontSize:12px "Nested text"
 
 # Complex expression in attribute
-:input value=$ x + y * 2
+y := 123
+:input value ~ x + y * 2
 
 # Empty string attribute
 :input placeholder=""
@@ -88,45 +91,48 @@ tag := "d"+"iv"
 :div.my-very-long-class-name-here margin-top:10px padding-left:20px
 
 # Unicode in text content
-:div |Hello 世界 🌍
+:div "Hello 世界 🌍"
 
 # Backticks and special chars in text
-:span |Use `<code>` :span $here
+:span "Use `<code>` :span $here"
 
 # Single quote in attribute value
 :input placeholder='Enter text'
 
 # Number in text with interpolation
-:span |Count: ${count}
+count := 5
+:span `Count: ${count}`
 
 # Multiple inline nested with classes
-:div.outer span.inner b.bold |Text
+:div.outer span.inner b.bold "Text"
 
 # Chained tags with attributes
-:div id=main span class=text |Content
+:div id=main span class=text "Content"
 
 # Apply class and style on parent element
 :.item color:blue
 
 # Tag followed by complex nested structure
 :div
-	:span.label |Label:
-	:input type=text value~$val
+	:span.label "Label:"
+	val := 123
+	:input type=text value~val
 
 # Mixed inline and block children
-:div span |Inline
+:div span "Inline"
 :div
-	:span |Block child
+	:span "Block child"
 
 # Combining features
+something := true
 :div
 	if something
 		:.myclass
 	:id = test
-	:data-value =$ 40 + 2
-	:click =$ ||
+	:data-value = ${40 + 2}
+	:click@ ||
 		console.log& "Clicked"
-	:destroy!$ ||
+	:destroy! ||
 		console.log& "Destroyed"
 	x := 42
-	:value ~$ x
+	:value ~ x

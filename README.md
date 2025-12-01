@@ -62,10 +62,12 @@ tabscript 1.0 ui=A
 items := ["Apple", "Banana", "Cherry"]
 
 :div.container
-	:h1 color:blue |Shopping List
+	:h1 color:blue "Shopping List"
 	:ul
 		for item: of items
-			:li :span |${item}
+			:li span "${item}"
+	:button "Add Item" :click@ |event|
+		console.log& "Button clicked! (${event})" 
 ```
 
 Note how `:tags` are statements, so they can be intermixed with control flow.
@@ -74,13 +76,14 @@ Transpiles to method chains:
 
 ```typescript
 const items=["Apple","Banana","Cherry"];
+
 A.e("div").c("container").f(function(){
 	A.e("h1").s("color","blue").t(`Shopping List`);
 	A.e("ul").f(function(){
-		for(const item of items)
-			A.e("li").e("span").t(`${item}`);
-	});
-});
+		for(const item of items){
+			A.e("li").e("span").t(`${item}`);}});
+	A.e("button").t("Add Item").l("click",function(event){
+		console.log(`Button clicked! (${event})`);});});
 ```
 
 ## Installation

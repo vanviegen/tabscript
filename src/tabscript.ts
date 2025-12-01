@@ -37,20 +37,14 @@ const
     WITHIN_BACKTICK_STRING = descr(/[\s\S]*?(\${|`)/y, "`string`"),
     EXPRESSION_PREFIX = descr(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b|new\b/y, "unary-op"),
     REGEXP = descr(/\/(\\.|[^\/])+\/[gimsuyd]*/y, "regexp"),
-    TAG_LITERAL = descr(/([0-9a-zA-Z_\-]+)/y, "tag-literal"),
-    TAG_OPERATOR = descr(/[=~!:]/y, "tag-operator"),
+    TAG_LITERAL = descr(/[0-9a-zA-Z_\-]+/y, "tag-literal"),
+    TAG_LITERAL_INTERPOLATE = descr(/[0-9a-zA-Z_\-]*\$\{/y, "tag-literal"),
 // Other regexes
     ANYTHING = /[\s\S]/y,
     ALPHA_NUM = /^[a-zA-Z0-9]+$/,
     START_WORD_CHAR = /^[a-zA-Z0-9_$]/,
     IS_WORD_CHAR = /^[a-zA-Z0-9_$]$/
     ;
-
-const REPLACE_TAG_OPERATORS : Record<string, string> = {
-    '=': 'a',
-    '~': 'p',
-    ':': 's',
-};
 
 const REPLACE_OPERATORS: Record<string, string> = {
     "or": "||",
@@ -183,11 +177,12 @@ export function tabscript(inData: string, options: Options = {}): {
     function parseStatement() {
         // if (a==3) throw new Error();
         const orgOutLen = outData.length;
-        if (parseMarkup() || parseMarkupText() || parseReturn() || parseThrow() || parseTypeDecl() || parseExport() || parseImport() || parseDoWhile()) {
-        } else if (parseIfWhile() || parseFor() || parseTry() || parseFunction(true) || parseClass() || parseSwitch() || parseEnum() || parseDeclare()) {
+        if (parseMarkup() || parseReturn() || parseThrow() || parseTypeDecl() || parseExport() || parseImport() || parseDoWhile()) {}
+        else if (parseIfWhile() || parseFor() || parseTry() || parseFunction(true) || parseClass() || parseSwitch() || parseEnum() || parseDeclare()) {
             return true; // Statement parsed, but no need for semicolon in output
-        } else if (parseVarDecl() || parseExpressionSeq()) {
-        } else {
+        }
+        else if (parseVarDecl() || parseExpressionSeq()) {}
+        else {
             return false; // This is not a statement
         }
         // The check here is because when in stripTypes mode, some statements (such as type definitions) may not emit any output and therefore do not need a semicolon
@@ -869,27 +864,28 @@ export function tabscript(inData: string, options: Options = {}): {
         return true;
     }
 
-    function readTagValueJs() {
-        if (read('$')) {
-            const saved = getOutState();
-            must(parseExpression(true));
-            const expr = outData.slice(saved.outData.length);
-            restoreState(saved);
-            return expr;
+    function parseMarkupValue() {
+        return parseBacktickString() || eat(STRING) || parseMarkupLiteral();
+    }
+
+    function parseMarkupLiteral() {
+        const saved = getFullState();
+        emit('`');
+        while(eat(TAG_LITERAL_INTERPOLATE)) { // includes the ${
+            must(parseExpression());
+            must(eat('}'));
         }
-
-        const lit = read(TAG_LITERAL);
-        if (lit) return JSON.stringify(lit);
-
-        if (peek('`')) {
-            const saved = getOutState();
-            must(parseBacktickString);
-            const expr = outData.slice(saved.outData.length);
+        eat(TAG_LITERAL);
+        if (inPos === saved.inPos) { // nothing was read
             restoreState(saved);
-            return expr;
+            return false;
         }
+        emit('`');
+        return true;
+    }
 
-        return read(STRING);
+    function insertOutData(pos: number, str: string) {
+        outData = outData.slice(0, pos) + str + outData.slice(pos);
     }
 
     function parseMarkup(isChained = false) {
@@ -907,64 +903,58 @@ export function tabscript(inData: string, options: Options = {}): {
         const startLine = inLine;
         while(inLine === startLine) { // When a (function/class/..) expression value moves us to the next line, we stop parsing markup
             if (read('.')) { // class
-                emit(`.c(${readTagValueJs()})`);
+                emit('.c(');
+                parseMarkupValue();
+                emit(')');
                 continue;
             }
 
             const special = read(IDENTIFIER, '!');
             if (special) { // Special attribute
                 emit(`.${special[0]}(`);
-                emit(must(readTagValueJs()));
+                must(parseExpression());
                 emit(')');
                 continue;
             }
 
-            const nameJs = readTagValueJs(); // Attribute or tag
-            if (!nameJs) break;
-
-            const op = read(TAG_OPERATOR);
-            if (op) { // Attribute with operator
-                const tr = must(REPLACE_TAG_OPERATORS[op]);
-                emit(`.${tr}(${nameJs},`);
-                emit(must(readTagValueJs()));
+            const namePos = outData.length;
+            if (eat(STRING) || parseBacktickString()) {
+                insertOutData(namePos, `.t(`);
                 emit(')');
                 continue;
             }
-            
-            // Create an element
-            emit(`.e(${nameJs})`);
+
+            if (!parseMarkupLiteral()) break;
+
+            if (read('=')) {
+                insertOutData(namePos, `.a(`);
+                emit(',');
+                must(parseMarkupValue());
+                emit(')');
+            } else if (read('~')) {
+                insertOutData(namePos, `.p(`);
+                emit(',');
+                must(parseExpression());
+                emit(')');
+            } else if (read('@')) {
+                insertOutData(namePos, `.l(`);
+                emit(',');
+                must(parseExpression());
+                emit(')');
+            } else if (read(':')) {
+                insertOutData(namePos, `.s(`);
+                emit(',');
+                must(parseMarkupValue());
+                emit(')');
+            } else {
+                insertOutData(namePos, `.e(`);
+                emit(')');
+            }
         }
-
-        parseMarkupText(true);
 
         // Optional child block
         parseGroup({jsOpen: '.f(function(){', jsClose: '})', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement));
 
-        return true;
-    }
-
-    function parseMarkupText(isChained = false) {
-        // Only parse markup when ui option is enabled
-        if (!ui) return false;
-
-        // A statement starting with : can only mean markup text
-        if (!read('|')) return false;
-        
-        // Add the library name if we're not chaining
-        if (!isChained) emit(ui);
-
-        // Text content till the end of the line
-        emit('.t(`');
-        while(true) {
-            const rest = read(REST_OF_LINE_OR_INTERPOLATE);
-            if (!rest) break;
-            emit(rest.replace(/\\|`/g, '\\$&')); // escape backtick and backslash in output
-            if (rest.slice(-1) !== '${') break; // End of line
-            // Interpolation
-            must(parseExpression());
-            must(read('}'));
-        }
-        emit('`)');
         return true;
     }
 
@@ -1072,7 +1062,7 @@ export function tabscript(inData: string, options: Options = {}): {
         let m = /\bat parse([A-Z][a-zA-Z]*)/.exec(stack) || ['', 'top-level'];
 
         const got = indentsPending ? (indentsPending[0]==='i' ? "INDENT" : "DEDENT") : toJson(inData.substr(inPos,24));
-        let error = new ParseError(inPos, inLine, inCol, `Could not parse ${m[1]} as input is ${got} but we expected one of:   ${joinTokens(Array.from(matchOptions))}`);
+        let error = new ParseError(inPos, inLine, inCol, `Could not parse ${m[1]}\n  Input is: ${got}\n  Expecting one of:   ${joinTokens(Array.from(matchOptions))}`);
         throw error;
     }
 
@@ -1271,7 +1261,7 @@ export function tabscript(inData: string, options: Options = {}): {
     }
 
     function emit(text: string | undefined | null, toMap=true) {
-        if (!text) return;
+        if (text==null) return;
         
         // Insert newlines to reach target line
 
