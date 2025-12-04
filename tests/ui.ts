@@ -2,137 +2,138 @@
 const A={}as any;
 
 
-A.e(`div`);
+A(`div`);
 
 
-A.e(`main`).c(`my-class`);
+A(`main.my-class`);
 
 
-A.e(`div`).c(`row`).c(`active`);
+A(`div.row.active`);
 
 
-A.e(`input`).a(`type`,`text`).a(`placeholder`,"Enter text");
+A(`input type=text placeholder=`,"Enter text");
 
 
 const x=3;
-A.e(`input`).p(`value`,x);
+A(`input value=`,x);
 
 
-A.e(`div`).s(`color`,`red`);
+A(`div color:red`);
 
 
-A.e(`div`).s(`margin-top`,`10px`);
+A(`div margin-top:10px`);
 
 
 const array=[1,2,3];
 const size=12;
-A.e(`div`).c(`row`).s(`margin-top`,`${size*2}px`).f(function(){
-	A.e(`input`).a(`type`,`text`).p(`value`,x).a(`placeholder`,"Enter text");
-	A.e(`button`).s(`color`,`red`).t("Submit");
+A(`div.row margin-top:`,`${size*2}px`,function(){
+	A(`input type=text value=`,x,`placeholder=`,"Enter text");
+	A(`button color:red#Submit`);
 });
 
 const variable="world";
-A.t("Some text ${variable} more text");
+A(`#Some text ${variable} more text`);
 
 
-A.f(function(){
+A(function(){
 	console.log( "do reactive things");
 });
 
-A.c(`some-class`);
+A(`.some-class`);
 
 
-A.c(`another-class`).s(`fontSize`,`32`);
+A(`.another-class fontSize:32`);
 
 
 for(const item of array){
-	A.e(`div`).c(`row`).f(function(){
-		A.e(`span`).t(`Item #${item.id}: ${item.name}`);
+	A(`div.row`,function(){
+		A(`span#Item #${item.id}: ${item.name}`);
 });
 }
-A.e(`div`).e(`span`).t("Text");
+A(`div span#Text`);
 
 
-A.e(`input`).a(`type`,`text`).a(`name`,`username`).a(`placeholder`,"Your name").s(`color`,`blue`).s(`fontSize`,`14px`);
+A(`input type=text name=username placeholder=`,"Your name",` color:blue fontSize:14px`);
 
-A.e(`input`).p(`value`,true).a(`placeholder`,`Test${42}`);
+A(`input value=`,true,`placeholder=`,`Test${42}`);
 
 const tag="d"+"iv";
-A.e(`${tag}`).t(`T${'e'+'x'}t`);
+A(``,`${tag}`,`#T${'e'+'x'}t`);
 
-A.e(`div`).e(`span`).e(`b`).t("Hi mom");
+A(`div span b#Hi mom`);
 
-A.e(`div`).e(`span`).e(`b`).f(function(){
-	A.t("Hi dad");
+A(`div span b`,function(){
+	A(`#Hi dad`);
 });
 
-A.e(`div`).t("Text with \"quotes\" and 'apostrophes'");
+A(`div#Text with \"quotes\" and 'apostrophes'`);
 
 
-A.e(`input`).a(`placeholder`,"Enter \"quoted\" text");
+A(`input placeholder=`,"Enter \"quoted\" text");
 
 
-A.e(`div`).a(`title`,"This is a title");
+A(`div title=`,"This is a title");
 
 
-A.e(`div`).c(`container`).s(`color`,`red`).e(`span`).s(`fontSize`,`12px`).t("Nested text");
+A(`div.container color:red span fontSize:12px#Nested text`);
 
 
 const y=123;
-A.e(`input`).p(`value`,x+y * 2);
+A(`input value=`,x+y* 2);
 
 
-A.e(`input`).a(`placeholder`,"");
+A(`input placeholder=`,"");
 
 
-A.e(`div`).c(`header`).c(`active`);
+A(`div.header.active`);
 
 
-A.e(`div`).c(`my-very-long-class-name-here`).s(`margin-top`,`10px`).s(`padding-left`,`20px`);
+A(`div.my-very-long-class-name-here margin-top:10px padding-left:20px`);
 
 
-A.e(`div`).t("Hello 世界 🌍");
+A(`div#Hello 世界 🌍`);
 
 
-A.e(`span`).t("Use `<code>` :span $here");
+A(`span#Use \`<code>\` :span $here`);
 
 
-A.e(`input`).a(`placeholder`,'Enter text');
+A(`input placeholder=`,'Enter text');
 
 
 const count=5;
-A.e(`span`).t(`Count: ${count}`);
+A(`span#Count: ${count}`);
 
 
-A.e(`div`).c(`outer`).e(`span`).c(`inner`).e(`b`).c(`bold`).t("Text");
+A(`div.outer span.inner b.bold#Text`);
 
 
-A.e(`div`).a(`id`,`main`).e(`span`).a(`class`,`text`).t("Content");
+A(`div id=main span class=text#Content`);
 
 
-A.c(`item`).s(`color`,`blue`);
+A(`.item color:blue`);
 
 
-A.e(`div`).f(function(){
-	A.e(`span`).c(`label`).t("Label:");
+A(`div`,function(){
+	A(`span.label#Label:`);
 	const val=123;
-	A.e(`input`).a(`type`,`text`).p(`value`,val);
+	A(`input type=text value=`,val);
 });
 
-A.e(`div`).e(`span`).t("Inline");
-A.e(`div`).f(function(){
-	A.e(`span`).t("Block child");
+A(`div span#Inline`);
+A(`div`,function(){
+	A(`span#Block child`);
 });
 
 const something=true;
-A.e(`div`).f(function(){
+A(`div`,function(){
 	if(something){
-		A.c(`myclass`);}
-	A.a(`id`,`test`);
-	A.a(`data-value`,`${40+ 2}`);
-	A.l(`click`,()=>{
+		A(`.myclass`);}
+	A(`id=test`);
+	A(`data-value=`,`${"x "+"y"}`);
+	A(`data-value2=`,"x "+"y");
+	A(`click=`,()=>{
 		console.log( "Clicked");});
-	A.destroy(()=>{
+	A(`destroy=`,()=>{
 		console.log( "Destroyed");});
 	const x=42;
-	A.p(`value`,x);});
+	A(`value=`,x);});

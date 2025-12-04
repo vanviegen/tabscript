@@ -15,7 +15,7 @@ A := {} as any
 
 # Test properties
 x := 3
-:input value~x
+:input value@ x
 
 # Test styles
 :div color:red
@@ -27,7 +27,7 @@ x := 3
 array := [1, 2, 3]
 size := 12
 :div.row margin-top:${size * 2}px
-	:input type=text value~x placeholder="Enter text"
+	:input type=text value@x placeholder="Enter text"
 	:button color:red "Submit"
 
 # Test empty tag with text
@@ -55,7 +55,7 @@ for item: of array
 # Test multiple attributes and styles
 :input type=text name=username placeholder="Your name" color:blue fontSize:14px
 
-:input value~true placeholder=`Test${42}`
+:input value@true placeholder=`Test${42}`
 
 tag := "d"+"iv"
 :${tag} `T${'e'+'x'}t`
@@ -79,7 +79,7 @@ tag := "d"+"iv"
 
 # Complex expression in attribute
 y := 123
-:input value ~ x + y * 2
+:input value@ x + y * 2
 
 # Empty string attribute
 :input placeholder=""
@@ -116,7 +116,7 @@ count := 5
 :div
 	:span.label "Label:"
 	val := 123
-	:input type=text value~val
+	:input type=text value@val
 
 # Mixed inline and block children
 :div span "Inline"
@@ -129,10 +129,11 @@ something := true
 	if something
 		:.myclass
 	:id = test
-	:data-value = ${40 + 2}
+	:data-value = ${"x " + "y"}
+	:data-value2 @ "x " + "y"
 	:click@ ||
 		console.log& "Clicked"
-	:destroy! ||
+	:destroy@ ||
 		console.log& "Destroyed"
 	x := 42
-	:value ~ x
+	:value @ x

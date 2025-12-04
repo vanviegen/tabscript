@@ -865,30 +865,42 @@ export function tabscript(inData: string, options: Options = {}): {
     }
 
     function parseMarkupValue() {
-        return parseBacktickString() || eat(STRING) || parseMarkupLiteral();
+        if (parseMarkupLiteral()) return true;
+        const saved = getOutState();
+        emit('`,');
+        if (parseBacktickString() || eat(STRING)) {
+            emit(',`');
+            return true;
+        }
+
+        restoreState(saved);
+        return false;
     }
 
     function parseMarkupLiteral() {
-        const saved = getFullState();
-        emit('`');
-        while(eat(TAG_LITERAL_INTERPOLATE)) { // includes the ${
-            must(parseExpression());
-            must(eat('}'));
+        const useArgString = peek(TAG_LITERAL_INTERPOLATE);
+        if (useArgString) {
+            emit('`,`', false, false); // Emit value in its own arg string, as it may contain spaces, dashes, etc.
+            while(eat(TAG_LITERAL_INTERPOLATE)) { // includes the ${
+                must(parseExpression());
+                must(eat('}'));
+            }
         }
-        eat(TAG_LITERAL);
-        if (inPos === saved.inPos) { // nothing was read
-            restoreState(saved);
-            return false;
-        }
-        emit('`');
-        return true;
+        const hasTail = eat(TAG_LITERAL);
+        if (useArgString) emit('`,`', false, false); // Close the own string and start a new control string
+        return useArgString || hasTail;
     }
 
-    function insertOutData(pos: number, str: string) {
-        outData = outData.slice(0, pos) + str + outData.slice(pos);
+    function stripOut(str: string) {
+        if (outData.endsWith(str)) {
+            outData = outData.slice(0, outData.length - str.length);
+            outCol -= str.length;
+            return true;
+        }
+        return false;
     }
 
-    function parseMarkup(isChained = false) {
+    function parseMarkup() {
         // Only parse tags when ui option is enabled
         if (!ui) return false;
 
@@ -896,64 +908,55 @@ export function tabscript(inData: string, options: Options = {}): {
         if (!read(':')) return false;
 
         // Add the library name if we're not chaining
-        if (!isChained) emit(ui);
+        emit(ui+"(`");
 
         // Parse optional element name (can be IDENTIFIER or ${expr})
 
         const startLine = inLine;
         while(inLine === startLine) { // When a (function/class/..) expression value moves us to the next line, we stop parsing markup
             if (read('.')) { // class
-                emit('.c(');
-                parseMarkupValue();
-                emit(')');
+                stripOut(' ');
+                emit('.');
+                must(parseMarkupValue());
                 continue;
             }
 
-            const special = read(IDENTIFIER, '!');
-            if (special) { // Special attribute
-                emit(`.${special[0]}(`);
-                must(parseExpression());
-                emit(')');
-                continue;
-            }
-
-            const namePos = outData.length;
+            const saved = getOutState();
             if (eat(STRING) || parseBacktickString()) {
-                insertOutData(namePos, `.t(`);
-                emit(')');
+                const str = outData.slice(saved.outData.length);
+                restoreState(saved);
+                const quote = str[0];
+                let content = str.slice(1, str.length-1); // Prefix with # to indicate string literal tag name
+                if (quote!=='`') content = content.replace(/`/g, '\\`'); // Escape backticks in normal strings
+                stripOut(' ');
+                emit("#" + content + "`,`", false, false);
                 continue;
             }
 
             if (!parseMarkupLiteral()) break;
 
-            if (read('=')) {
-                insertOutData(namePos, `.a(`);
-                emit(',');
+            const op = eat('=') || eat(':');
+            if (op) { // A string value
                 must(parseMarkupValue());
-                emit(')');
-            } else if (read('~')) {
-                insertOutData(namePos, `.p(`);
-                emit(',');
+                emit(' ', false, false);
+            } else if (read('@')) { // An expression value
+                emit('=');
+                emit('`,', false, false);
                 must(parseExpression());
-                emit(')');
-            } else if (read('@')) {
-                insertOutData(namePos, `.l(`);
-                emit(',');
-                must(parseExpression());
-                emit(')');
-            } else if (read(':')) {
-                insertOutData(namePos, `.s(`);
-                emit(',');
-                must(parseMarkupValue());
-                emit(')');
-            } else {
-                insertOutData(namePos, `.e(`);
-                emit(')');
+                emit(',`');
+            } else { // No value (it's a tag)
+                emit(' ', false, false);
             }
         }
 
+        stripOut(' '); // Remove last space from the open spring
+        if (!stripOut('`')) emit('`,', false, false); // Remove last empty string, or close last string
+
         // Optional child block
-        parseGroup({jsOpen: '.f(function(){', jsClose: '})', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement));
+        parseGroup({jsOpen: 'function(){', jsClose: '}', next: ';', jsNext: null, allowImplicit: true}, () => recoverErrors(parseStatement));
+
+        stripOut(','); // Remove last comma if present
+        emit(')');
 
         return true;
     }
@@ -1260,7 +1263,14 @@ export function tabscript(inData: string, options: Options = {}): {
         if (!stripTypes) emit(text);
     }
 
-    function emit(text: string | undefined | null, toMap=true) {
+    /**
+     * Add text to the output, taking care of target positions and whitespace.
+     * @param text Text to emit.
+     * @param toMap Whether to update the source map. Set to false when emitting text that doesn't correspond to previous read() from input. Defaults to true.
+     * @param addWhitespace Whether whitespace may be added before the text to match the input. Set to false when emitting output that is sensitive to whitespace (such as within a string). Default to false.
+     * @returns 
+     */
+    function emit(text: string | undefined | null, toMap=true, addWhitespace=true) {
         if (text==null) return;
         
         // Insert newlines to reach target line
@@ -1273,32 +1283,34 @@ export function tabscript(inData: string, options: Options = {}): {
             }
         }
 
-        const prevChar = outData.length ? outData[outData.length - 1] : ' ';
+        if (addWhitespace) {
+            const prevChar = outData.length ? outData[outData.length - 1] : ' ';
 
-        if (outCol === 1 && outTargetCol != null && outTargetCol > 1 && outLine === outTargetLine) {
-            outCol += outTargetCol - 1;
-            outData += '\t'.repeat(outTargetCol - 1)
-        } else {
-            let spaceCount = prevChar.match(IS_WORD_CHAR) && text.match(START_WORD_CHAR) ? 1 : 0;
-
-            if (whitespace === 'preserve') {
-                if (outTargetCol != null && outLine === outTargetLine) spaceCount = Math.max(spaceCount, outTargetCol-outCol);
+            if (outCol === 1 && outTargetCol != null && outTargetCol > 1 && outLine === outTargetLine) {
+                outCol += outTargetCol - 1;
+                outData += '\t'.repeat(outTargetCol - 1)
             } else {
-                if (!spaceCount) {
-                    const nextChar = text[0];
-                    if ("[(.!".indexOf(prevChar) < 0 && "[](,;):.".indexOf(nextChar) < 0) spaceCount = 1;
-                    else if (":=".indexOf(prevChar)>=0 && "([".indexOf(nextChar) >= 0) spaceCount = 1;
+                let spaceCount = prevChar.match(IS_WORD_CHAR) && text.match(START_WORD_CHAR) ? 1 : 0;
+
+                if (whitespace === 'preserve') {
+                    if (outTargetCol != null && outLine === outTargetLine) spaceCount = Math.max(spaceCount, outTargetCol-outCol);
+                } else {
+                    if (!spaceCount) {
+                        const nextChar = text[0];
+                        if ("[(.!".indexOf(prevChar) < 0 && "[](,;):.".indexOf(nextChar) < 0) spaceCount = 1;
+                        else if (":=".indexOf(prevChar)>=0 && "([".indexOf(nextChar) >= 0) spaceCount = 1;
+                    }
+
                 }
 
+                if (spaceCount) {
+                    outCol += spaceCount;
+                    outData += ' '.repeat(spaceCount);
+                }
             }
-
-            if (spaceCount) {
-                outCol += spaceCount;
-                outData += ' '.repeat(spaceCount);
-            }
+            // Clear targets - these will be set again by the next read()
+            outTargetCol = outTargetLine = undefined;
         }
-        // Clear targets - these will be set again by the next read()
-        outTargetCol = outTargetLine = undefined;
         
         if (inOutMap && outTargetPos != null && toMap) {
             inOutMap.in.push(outTargetPos);
