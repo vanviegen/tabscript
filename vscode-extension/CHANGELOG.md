@@ -2,6 +2,19 @@
 
 All notable changes to the "tabscript" extension will be documented in this file.
 
+## [0.2.0] - 2025-12-09
+
+### Added
+- Plugin support for custom syntax extensions
+- Automatic transpilation and loading of plugin files (`.tab` or `.js`)
+
+### Changed
+- Uses local TabScript from `node_modules` when available, falling back to vendored copy
+- Improved description and keywords for marketplace
+
+### Fixed
+- Icon path now correctly references SVG file
+
 ## [0.1.0] - 2025-11-03
 
 ### Added

@@ -1,4 +1,4 @@
-tabscript 0.0
+tabscript 1.0
 x := y := 3 # FAIL the second := should 
 a := 1 # ok
 b :::= 4 # FAIL too many colons

@@ -6,6 +6,8 @@ title: TabScript Tutorial
 
 TabScript is an alternate syntax for TypeScript that replaces braces with indentation and introduces shorthand operators while maintaining full TypeScript compatibility. The compiler outputs clean TypeScript or JavaScript.
 
+The transpiler is **lexer-less and single-pass** — it reads input and emits output simultaneously without building an AST. This makes it fast and simple but best suited for superficial syntax transformations. Plugins work at the token level, making them ideal for DSLs that map cleanly to underlying TypeScript constructs.
+
 ## Getting Started
 
 Let's start with a complete example that showcases TabScript's clean syntax:
@@ -321,217 +323,197 @@ enum Status
 enum Direction { Up, Down, Left, Right }
 ```
 
-## UI Tags (Optional)
+## Plugins
 
-When using the `ui` feature flag in the header (`tabscript 1.0 ui=A`, where `A` is the symbol to use for the UI library), you can use a JSX-like syntax that transpiles to method chains. This feature is designed specifically for Aberdeen.js, but may be adaptable to other frameworks.
+TabScript's plugin system lets you extend the language with custom syntax tailored to your domain. Plugins hook into the parser to recognize new syntax patterns and emit custom output while maintaining full IDE support.
 
-### Enabling UI Tags
+### Using Plugins
 
-Add `ui=A` to your header (replace `A` with your library's identifier):
-
-```tabscript
-tabscript 1.0 ui=A
-```
-
-### Basic Elements
-
-Create elements with `:tagname`:
+Specify plugins in your file header after the version number:
 
 ```tabscript
-:div      # transpiles to: A.e(`div`);
-:button   # transpiles to: A.e(`button`);
+tabscript 1.0 plugin=./my-plugin.tab
 ```
 
-Tags transpile to method calls on the library object. `:div` becomes `A.e("div")`, where `.e()` creates an element.
-
-### Text Content
-
-Use quoted strings (single, double, or backtick) for text content:
+You can load multiple plugins and pass options:
 
 ```tabscript
-:button "Submit"
-# A.e(`button`).t("Submit");
-
-count := 5
-:span `You have ${count} items`
-# A.e(`span`).t(`You have ${count} items`);
+tabscript 1.0 plugin=./markup.tab (function=UI) plugin=./logging.js
 ```
 
-Text transpiles to `.t()`. Use backticks for interpolation.
+Plugins can be written in TabScript (`.tab`) or JavaScript (`.js`).
 
-### Attributes (=)
+### How Plugins Work
 
-Set HTML attributes with `=`. Values are **strings** — unquoted literals or quoted strings:
+Plugins register hooks that run before, after, or instead of parser methods. The parser uses methods like `parseStatement`, `parseExpression`, and `parseType` to process different parts of the syntax. Plugins can intercept these to add new syntax.
+
+### Writing a Simple Plugin
+
+Here's a plugin that adds an `@log` decorator for automatic function call logging:
 
 ```tabscript
-:input type=text placeholder="Enter your name" required=true
-# A.e(`input`).a(`type`,`text`).a(`placeholder`,"Enter your name").a(`required`,`true`);
+tabscript 1.0
 
-id := 5
-:div data-id=item-${id}
-# A.e(`div`).a(`data-id`,`item-${id}`);
+import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
+
+export default function|register: Register, pluginOptions: PluginOptions, options: Options|
+	IDENTIFIER := /[a-zA-Z_$][0-9a-zA-Z_$]*/y
+
+	register.before& 'parseStatement' |p: Parser, s: State|
+		if !s.read& '@log'
+			return false
+
+		# Parse: @log name := |args| body
+		name := s.must& s.read& IDENTIFIER
+		s.must& s.read& ':'
+		isLet := !!s.read& ':'
+		s.emit& (isLet ? 'let ' : 'const ') + name
+
+		s.must& s.read& '='
+
+		# Wrap function with logging
+		s.emit& '=('
+		s.must& p.parseFuncParams(s)
+		s.emit& '=>{console.log(' + JSON.stringify(name) + ',...arguments);return('
+		s.must& p.parseExpression(s)
+		s.emit& ');})'
+
+		return true
 ```
 
-Unquoted values (as well as backtick strings) support `${}` interpolation. Use quotes for values with spaces.
-
-### Classes (.)
-
-Add CSS classes with dot syntax. Values are **strings**:
+Usage:
 
 ```tabscript
-:div.container.flex
-# A.e(`div`).c(`container`).c(`flex`);
+tabscript 1.0 plugin=./log-plugin.tab
 
-:.hidden
-# A.c(`hidden`);  (applies to current parent)
+@log add := |a: number, b: number| a + b
+
+result := add(1, 2)  # Logs: "add" 1 2
 ```
 
-### Styles (:)
+### Plugin API
 
-Set inline CSS styles with `:`. Values are **strings** — unquoted or quoted:
+Plugins export a default function that receives three arguments:
+
+- **`register`** - Object with methods to hook into parser
+- **`pluginOptions`** - Options passed in parentheses after plugin path
+- **`options`** - Global transpiler options (includes `js` flag)
+
+#### Register Methods
+
+**`register.before(methodName, func)`** - Run before a parser method. If your function returns truthy, the original method is skipped.
 
 ```tabscript
-:div color:red fontSize:14px
-# A.e(`div`).s(`color`,`red`).s(`fontSize`,`14px`);
-
-padding := 20
-:div margin:${padding}px padding:${padding / 2}px
-# A.e(`div`).s(`margin`,`${padding}px`).s(`padding`,`${padding / 2}px`);
+register.before& 'parseStatement' |p, s|
+	if s.read& '@custom'
+		# Handle custom syntax
+		return true
+	return false
 ```
 
-### Properties (~)
-
-Set DOM properties with `~`. Values are **expressions** — evaluated directly:
+**`register.after(methodName, func)`** - Run after a parser method only if it returned falsy (failed to parse).
 
 ```tabscript
-checked := true
-:input type=checkbox checked~checked
-# A.e(`input`).a(`type`,`checkbox`).p(`checked`,checked);
-
-:input value~getUserInput()
-# A.e(`input`).p(`value`,getUserInput());
+register.after& 'parseExpression' |p, s|
+	# Try custom expression syntax when standard parsing fails
+	if s.read& '#'
+		s.emit& '"hash_value"'
+		return true
+	return false
 ```
 
-Use properties for values that need to be their actual type (boolean, number, object), not strings.
-
-### Event Handlers (@)
-
-Attach event listeners with `@`. Values are **expressions** (typically functions):
+**`register.replace(methodName, func)`** - Completely replace a parser method. Receives the original method as the first argument.
 
 ```tabscript
-:button "Save" :click@ || saveData()
-# A.e(`button`).t("Save").l(`click`,()=>saveData());
-
-:input :input@ |e| updateSearch(e.target.value)
-# A.e(`input`).l(`input`,(e)=>updateSearch(e.target.value));
+register.replace& 'parseExpression' |orig, p, s|
+	# Try custom syntax first
+	if s.read& '#custom'
+		s.emit& '"custom"'
+		return true
+	# Fall back to original
+	return orig(s)
 ```
 
-### Special Methods (!)
+#### State API
 
-Call library-specific methods with `!`. Values are **expressions**:
+The `State` object (`s`) provides methods for reading input and emitting output:
+
+**Reading Input:**
+- `s.read(pattern...)` - Consume tokens, returns undefined if no match
+- `s.peek(pattern...)` - Look ahead without consuming
+- `s.accept(pattern...)` - Read and emit tokens
+- `s.must(value)` - Throw error if value is falsy
+
+**Emitting Output:**
+- `s.emit(text...)` - Add text to output
+
+**State Management:**
+- `s.snapshot()` - Create checkpoint that can be reverted
+- `snapshot.revert()` - Revert input and output to checkpoint
+- `snapshot.revertOutput()` - Revert only output
+- `s.parseGroup(opts, func)` - Parse delimited groups
+
+**Position Info:**
+- `s.inLine` - Current input line number
+- `s.hasMore()` - Check if more input remains
+
+### Example: Markup DSL Plugin
+
+A more complex plugin can add entirely new syntax. Here's a simplified markup plugin that transforms `:div.class "text"` into function calls:
 
 ```tabscript
-:div
-	:destroy! || cleanup()
-# A.e(`div`).f(function(){A.destroy(()=>cleanup());});
+tabscript 1.0
 
-:input destroy! ||
-	console.log("Custom destroy handler (for transitions)")
-# A.e(`input`).destroy(()=>{
-#	console.log("Custom destroy handler (for transitions)");});
+import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
+
+export default function|register: Register, opts: PluginOptions, options: Options|
+	funcName := opts.function or "$"
+	TAG := /[a-zA-Z][a-zA-Z0-9-]*/y
+	
+	register.before& 'parseStatement' |p, s|
+		if !s.read& ':'
+			return false
+		
+		s.emit& funcName + '(`'
+		
+		# Parse tag name
+		s.accept& TAG
+		
+		# Parse classes (.class)
+		while s.read& '.'
+			s.emit& '.'
+			s.must& s.accept& TAG
+		
+		s.emit& '`'
+		
+		# Parse text content
+		snap := s.snapshot()
+		s.emit& ','
+		if !p.parseExpression(s)
+			snap.revertOutput()
+		
+		s.emit& ');'
+		return true
 ```
 
-The identifier before `!` becomes the method name called on the library object. They must accept a single expression as an argument.
-
-### Chaining Tags Inline
-
-Chain multiple tags on the same line:
+Usage with options:
 
 ```tabscript
-:div span b "Bold text"
-# A.e(`div`).e(`span`).e(`b`).t("Bold text");
+tabscript 1.0 plugin=./markup.tab (function=UI)
+
+:div.container.highlight "Hello world"
+# Transpiles to: UI(`div.container.highlight`, "Hello world");
 ```
 
-This creates nested elements: chained `.e()` calls create parent-child relationships.
+### Plugin Tips
 
-### Reactive Blocks
+1. **Return false on no match** - Your plugin should return `false` if it doesn't recognize the syntax, allowing other plugins or the default parser to try.
 
-Indent after a tag to create a reactive block:
+2. **Use snapshots for backtracking** - If you start parsing and realize the syntax doesn't match, use `snapshot().revert()` to undo changes.
 
-```tabscript
-:div.container
-	:h1 "Title"
-	:p "Paragraph"
-	console.log("reactive update")
-```
+3. **Check `options.js`** - If you emit type annotations, check `options.js` and skip them when outputting JavaScript.
 
-Transpiles to:
-
-```typescript
-A.e(`div`).c(`container`).f(function(){
-	A.e(`h1`).t("Title");
-	A.e(`p`).t("Paragraph");
-	console.log("reactive update");
-});
-```
-
-The indented block becomes a function passed to `.f()`, which reactive libraries use to track dependencies.
-
-### Markup Blocks Without Element Creation
-
-A lone `:` can contain attributes/properties/styles to be applied to the current parent element:
-
-```tabscript
-:div
-	# All of these apply to the div above
-	:id = myDiv
-	if weFeelLikeIt()
-		:data-value = ${40 + 2}
-	:click@ ||
-		console.log("Clicked")
-```
-
-Transpiles to:
-
-```typescript
-A.e(`div`).f(function(){
-	A.a(`id`,`myDiv`);
-	if(weFeelLikeIt()){
-		A.a(`data-value`,`${40 + 2}`);}
-	A.l(`click`,()=>{
-		console.log("Clicked");});
-});
-```
-
-This lets you add attributes across multiple lines without repeating the element name.
-
-### Dynamic Tag Names
-
-Use `${}` interpolation to use an expression as the tag name:
-
-```tabscript
-tag := "div"
-:${tag} "Content"
-# A.e(`${tag}`).t("Content");
-```
-
-### Complete Example
-
-```tabscript
-tabscript 1.0 ui=A
-
-items := ["Apple", "Banana", "Cherry"]
-
-:div.container
-	:h1.title color:blue "Shopping List"
-	:ul.items
-		for item: of items
-			:li.item
-				:span `${item}`
-				:button fontSize:12px "Remove" :click@ || removeItem& item
-```
-
-Transpiles to method chains that reactive libraries can use to build and update the UI efficiently.
+4. **Test thoroughly** - Create `.tab` and `.ts` test files to verify your plugin output matches expectations.
 
 ## Try It Yourself
 
@@ -544,7 +526,7 @@ tabscript <input.tab> [options]
 
 Options:
   --output <file>       Output file
-  --strip-types         Transpile to JavaScript
+  --js         Transpile to JavaScript
   --whitespace <mode>   preserve (default) or pretty
   --debug               Show debug output
   --recover             Attempt to recover from errors
@@ -553,5 +535,5 @@ Options:
 ## Learn More
 
 - Check out comprehensive examples in [tests/test.tab](https://github.com/vanviegen/tabscript/blob/main/tests/test.tab)
-- See UI tag examples in [tests/ui.tab](https://github.com/vanviegen/tabscript/blob/main/tests/ui.tab)
+- See plugin examples in [tests/log-plugin.tab](https://github.com/vanviegen/tabscript/blob/main/tests/log-plugin.tab) and [tests/markup-plugin.tab](https://github.com/vanviegen/tabscript/blob/main/tests/markup-plugin.tab)
 - Visit the [GitHub repository](https://github.com/vanviegen/tabscript) for source code

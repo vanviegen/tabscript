@@ -4,7 +4,7 @@ Language support for TabScript - modern TypeScript without the {(noise;)}.
 
 ## What is TabScript?
 
-TabScript is a transpiler that converts cleaner, indentation-based syntax to TypeScript or JavaScript. While semantically exactly the same as TypeScript, TabScript aims to reduce visual clutter and allow for beautiful DSLs, especially with regard to declarative UI code.
+TabScript is an indentation-based syntax for TypeScript, designed for building clean domain-specific languages (DSLs) with the full power of TypeScript's type system. It supports a powerful plugin system for custom syntax extensions.
 
 Learn more at [tabscript.vanviegen.net](https://tabscript.vanviegen.net/)
 
@@ -16,14 +16,17 @@ Learn more at [tabscript.vanviegen.net](https://tabscript.vanviegen.net/)
 - **Go to Definition**: Navigate to symbol definitions across your project
 - **Symbol Renaming**: Use F2 to rename symbols with full project awareness
 - **Multi-file Support**: Works seamlessly with imports between TabScript files
+- **Plugin Support**: Automatically loads plugins specified in file headers
 
 ## Requirements
 
-The extension includes the TabScript transpiler, so no additional installation is required. Simply install this extension to get full language support.
+The extension includes a vendored copy of the TabScript transpiler, so no additional installation is required. However, if your project has TabScript installed locally via npm, the extension will prefer that version for consistent behavior between your IDE and build process.
 
 ## How It Works
 
-The extension transpiles your TabScript code to TypeScript in memory as you type, then uses the TypeScript language service to provide IntelliSense, diagnostics, and other language features.
+The extension transpiles your TabScript code to TypeScript in memory as you type, then delegates to TypeScript's language service for all IDE features. This means you get the full power of TypeScript's type system while writing TabScript code.
+
+For projects using TabScript plugins, the extension will automatically transpile and load plugin files (`.tab` or `.js`) as specified in your file headers.
 
 ## Extension Settings
 
@@ -32,6 +35,12 @@ This extension contributes the following settings:
 - `tabscript.trace.server`: Enable tracing of the language server communication (for debugging)
 
 ## Release Notes
+
+### 0.2.0
+
+- Plugin support for custom syntax extensions
+- Improved error recovery and diagnostics
+- Uses local TabScript from node_modules when available
 
 ### 0.1.0
 

@@ -159,7 +159,7 @@ async function transpileCode(code, options = {}) {
 
     try {
         const result = transpiler.tabscript(codeWithHeader, {
-            stripTypes: options.stripTypes || false,
+            js: options.js || false,
             recover: true,
             whitespace: 'pretty'
         });
@@ -263,16 +263,16 @@ function createTranspilerWidget(codeE, initialCode) {
     let currentCode = initialCode;
     let editor = null;
     let updateTimeout = null;
-    let stripTypes = false;
+    let js = false;
 
     // Update transpiled output
     async function updateOutput() {
         const options = {
-            stripTypes: stripTypes
+            js: js
         };
 
         // Update tab active state
-        if (stripTypes) {
+        if (js) {
             tsTabE.classList.remove('active');
             jsTabE.classList.add('active');
         } else {
@@ -280,7 +280,7 @@ function createTranspilerWidget(codeE, initialCode) {
             tsTabE.classList.add('active');
         }
 
-        outputCodeE.className = options.stripTypes ? 'language-javascript' : 'language-typescript';
+        outputCodeE.className = options.js ? 'language-javascript' : 'language-typescript';
 
         const result = await transpileCode(currentCode, options);
         outputCodeE.textContent = result.output;
@@ -335,15 +335,15 @@ function createTranspilerWidget(codeE, initialCode) {
 
     // Handle tab clicks
     tsTabE.addEventListener('click', () => {
-        if (stripTypes) {
-            stripTypes = false;
+        if (js) {
+            js = false;
             updateOutput();
         }
     });
 
     jsTabE.addEventListener('click', () => {
-        if (!stripTypes) {
-            stripTypes = true;
+        if (!js) {
+            js = true;
             updateOutput();
         }
     });

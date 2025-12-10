@@ -26,12 +26,67 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as ts from 'typescript';
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 
-// Import tabscript transpiler from parent project
-const tabscript = require('../../dist/tabscript.js').tabscript;
+// Import vendored tabscript transpiler from extension
+const vendoredTabscript = require('../tabscript/tabscript.js').tabscript;
+
+// Create a require function for loading JS plugins
+const requireFromCwd = createRequire(process.cwd() + '/');
 
 // Create a connection for the server
 const connection = createConnection(ProposedFeatures.all);
+
+// Try to find tabscript in node_modules starting from basePath and walking up
+function findLocalTabscript(basePath: string): ((source: string, options?: any) => any) | null {
+  let dir = basePath;
+  while (true) {
+    const tabscriptPath = path.join(dir, 'node_modules', 'tabscript', 'tabscript.js');
+    if (fs.existsSync(tabscriptPath)) {
+      try {
+        return require(tabscriptPath).tabscript;
+      } catch (e) {
+        // If require fails, fall back to vendored version
+        return null;
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // Reached filesystem root
+    dir = parent;
+  }
+  return null;
+}
+
+// Plugin loader factory - creates a loadPlugin function for a specific base path
+function createPluginLoader(basePath: string, tabscriptFn?: (source: string, options?: any) => any): (pluginPath: string) => any {
+  // Detect local tabscript on first call if not provided
+  const transpiler = tabscriptFn ?? findLocalTabscript(basePath) ?? vendoredTabscript;
+  
+  const loadPlugin = (pluginPath: string): any => {
+    // Resolve relative to the base path
+    let resolvedPath = path.resolve(basePath, pluginPath);
+    
+    // If it's a .tab file, we need to transpile it
+    if (pluginPath.endsWith('.tab')) {
+      const pluginSource = fs.readFileSync(resolvedPath, 'utf8');
+      const pluginBasePath = path.dirname(resolvedPath);
+      // Pass the same transpiler to nested plugins for consistency
+      const pluginResult = transpiler(pluginSource, { js: true, loadPlugin: createPluginLoader(pluginBasePath, transpiler) });
+      if (pluginResult.errors.length > 0) {
+        throw new Error(`Failed to transpile plugin ${pluginPath}: ${pluginResult.errors[0].message}`);
+      }
+      // Evaluate the transpiled code in memory
+      // Convert ES module export to a return value for Function constructor
+      const code = pluginResult.code.replace(/export default /, 'return ');
+      return Function(code)();
+    }
+    
+    // For .js files, require them directly  
+    return requireFromCwd(resolvedPath);
+  };
+  return loadPlugin;
+}
 
 // Create a simple text document manager
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -120,11 +175,13 @@ function initializeTypeScriptService() {
   // Load tsconfig.json if present
   const currentDir = process.cwd();
   const tsconfigPath = ts.findConfigFile(currentDir, ts.sys.fileExists, 'tsconfig.json');
+  
   let compilerOptions: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2020,
     module: ts.ModuleKind.CommonJS,
     noEmit: true,
-    allowJs: true
+    allowJs: true,
+    baseUrl: currentDir,
   };
 
   if (tsconfigPath) {
@@ -135,7 +192,7 @@ function initializeTypeScriptService() {
         ts.sys,
         path.dirname(tsconfigPath)
       );
-      compilerOptions = { ...parsedConfig.options, noEmit: true };
+      compilerOptions = { ...parsedConfig.options, noEmit: true, baseUrl: parsedConfig.options.baseUrl || currentDir };
       connection.console.log(`Loaded tsconfig from: ${tsconfigPath}`);
     }
   }
@@ -188,9 +245,19 @@ function initializeTypeScriptService() {
 
 // Core transpilation function - called by both document and file-based transpilation
 function doTranspile(content: string, uri: string, version: number): TranspileCache {
-  const transpileResult = tabscript(content, {
+  // Determine the base path for plugin loading from the URI
+  let basePath = process.cwd();
+  if (uri.startsWith('file://')) {
+    basePath = path.dirname(fileURLToPath(uri));
+  }
+  
+  // Use local tabscript from node_modules if available, otherwise use vendored version
+  const transpiler = findLocalTabscript(basePath) ?? vendoredTabscript;
+  
+  const transpileResult = transpiler(content, {
     recover: true,
-    whitespace: 'pretty'
+    whitespace: 'pretty',
+    loadPlugin: createPluginLoader(basePath, transpiler)
   });
 
   const result: TranspileCache = {

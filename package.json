@@ -1,7 +1,7 @@
 {
     "name": "tabscript",
-    "version": "0.1.1",
-    "description": "Modern TypeScript without the {(noise;)} but with reactivity.",
+    "version": "0.2.0",
+    "description": "Indentation-based TypeScript syntax for building clean DSLs with plugin support.",
     "main": "dist-min/tabscript.js",
     "files": [
         "bin",
@@ -14,12 +14,12 @@
             "bun": "./src/tabscript.ts",
             "default": "./dist-min/tabscript.js",
             "development": "./dist/tabscript.js",
-            "types`": "./dist/tabscript.d.ts"
+            "types": "./dist/tabscript.d.ts"
         },
         "./browser": {
             "default": "./dist-min/browser.js",
             "development": "./dist/browser.js",
-            "types`": "./dist/browser.d.ts"
+            "types": "./dist/browser.d.ts"
         },
         "./package.json": "./package.json"
     },
@@ -32,11 +32,12 @@
         "watch": "tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts --watch",
         "watch-extension": "cd vscode-extension && tsc -p . --watch",
         "package-extension": "npm run build-all && cd vscode-extension && vsce package",
-        "test": "npm run test-ts && npm run test-js && npm run test-er && npm run test-ui && echo OK",
+        "test": "npm run test-ts && npm run test-js && npm run test-er && npm run test-markup && npm run test-log && echo OK",
         "test-ts": "./dist/cli.js tests/test.tab --output /dev/stdout | diff -u tests/test.ts -",
-        "test-js": "./dist/cli.js tests/test.tab --strip-types --output /dev/stdout | diff -u tests/test.js -",
+        "test-js": "./dist/cli.js tests/test.tab --js --output /dev/stdout | diff -u tests/test.js -",
         "test-er": "./dist/cli.js tests/error.tab --recover --output /dev/stdout 2> /dev/null | diff -u tests/error.ts -",
-        "test-ui": "./dist/cli.js tests/ui.tab --output /dev/stdout | diff -u tests/ui.ts -",
+        "test-markup": "./dist/cli.js tests/markup.tab --output /dev/stdout | diff -u tests/markup.ts -",
+        "test-log": "./dist/cli.js tests/log.tab --output /dev/stdout | diff -u tests/log.ts -",
         "prepack": "npm run build && npm run test"
     },
     "repository": {
@@ -48,8 +49,9 @@
         "typescript",
         "javascript",
         "transpile",
-        "convert",
-        "browser"
+        "dsl",
+        "plugin",
+        "indentation"
     ],
     "author": "Frank van Viegen",
     "license": "MIT",
@@ -69,5 +71,5 @@
         "typescript": "^5.8.3"
     },
     "type": "module",
-    "types": "dist-min/aberdeen.d.ts"
+    "types": "dist-min/tabscript.d.ts"
 }

@@ -85,7 +85,7 @@
         {
           "name": "string.quoted.double.tabscript",
           "begin": "\"",
-          "end": "\"",
+          "end": "\"|(?=\\n)",
           "patterns": [
             {
               "name": "constant.character.escape.tabscript",
@@ -96,11 +96,39 @@
         {
           "name": "string.quoted.single.tabscript",
           "begin": "'",
-          "end": "'",
+          "end": "'|(?=\\n)",
           "patterns": [
             {
               "name": "constant.character.escape.tabscript",
               "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.regexp.tabscript",
+          "begin": "(?<=[=(:,\\[!&|?]\\s*)/(?![/*])",
+          "end": "/[gimsuvy]*|(?=\\n)",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.tabscript" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.tabscript" }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.tabscript",
+              "match": "\\\\."
+            },
+            {
+              "name": "constant.character.class.tabscript",
+              "begin": "\\[",
+              "end": "\\]|(?=\\n)",
+              "patterns": [
+                {
+                  "name": "constant.character.escape.tabscript",
+                  "match": "\\\\."
+                }
+              ]
             }
           ]
         }
@@ -222,8 +250,8 @@
           "name": "keyword.operator.rest.tabscript",
           "match": "\\.\\.\\."
         },
-        { "include": "#types" },
-        { "include": "#operators" }
+        { "include": "#operators" },
+        { "include": "#types" }
       ]
     },
     "types": {
@@ -241,8 +269,8 @@
           "begin": "<",
           "end": ">",
           "patterns": [
-            { "include": "#types" },
-            { "include": "#operators" }
+            { "include": "#operators" },
+            { "include": "#types" }
           ]
         }
       ]
@@ -285,7 +313,7 @@
         },
         {
           "comment": "UI tag :tagname or :.classonly",
-          "name": "meta.tag.ui.tabscript",
+          "name": "meta.tag.markup.tabscript",
           "begin": "^(\\s*)(:)([a-zA-Z][a-zA-Z0-9]*)?",
           "end": "$",
           "beginCaptures": {
@@ -298,7 +326,7 @@
         },
         {
           "comment": "Standalone text content |text",
-          "name": "meta.tag.ui.text.tabscript",
+          "name": "meta.tag.markup.text.tabscript",
           "begin": "^(\\s*)(\\|)",
           "end": "$",
           "beginCaptures": {
@@ -404,7 +432,7 @@
         },
         {
           "comment": "Text content |text",
-          "name": "meta.tag.ui.text.tabscript",
+          "name": "meta.tag.markup.text.tabscript",
           "begin": "(\\|)",
           "end": "$",
           "beginCaptures": {

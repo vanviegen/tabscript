@@ -1,8 +1,8 @@
 {
   "name": "tabscript",
   "displayName": "TabScript",
-  "description": "TabScript language support with syntax highlighting and IntelliSense",
-  "version": "0.1.0",
+  "description": "TabScript language support - indentation-based TypeScript for DSLs",
+  "version": "0.2.0",
   "publisher": "tabscript",
   "repository": {
     "type": "git",
@@ -18,7 +18,9 @@
   "keywords": [
     "tabscript",
     "typescript",
-    "language"
+    "indentation",
+    "dsl",
+    "transpiler"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
@@ -35,8 +37,8 @@
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icon.png",
-          "dark": "./icon.png"
+          "light": "./icon.svg",
+          "dark": "./icon.svg"
         }
       }
     ],
