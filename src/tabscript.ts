@@ -6,7 +6,7 @@
  */
 
 import { State, ParseError } from './state.js';
-import { Parser, Register } from './parser.js';
+import { Parser } from './parser.js';
 
 export type { ParseError } from './state.js';
 
@@ -15,9 +15,8 @@ export type { ParseError } from './state.js';
  * 
  * > ⚠️ **Experimental API**: The plugin interface is still evolving. 
  * > Expect breaking changes in minor releases until the API stabilizes.
- * > Pin your TabScript version if stability is critical.
  */
-export type { Parser, Register, ParserMethod, PluginMethod, SimplePluginMethod } from './parser.js';
+export type { Parser, ParserMethod } from './parser.js';
 export { State } from './state.js';
 
 /**
@@ -34,21 +33,22 @@ export type Options = {
     transformImport?: (uri: string) => string,
     /** Output formatting mode: `"preserve"` maintains input alignment, `"pretty"` adds readable indentation. */
     whitespace?: 'preserve' | 'pretty',
-    /** Function to load a plugin module synchronously from a path. Required for header-specified plugins. */
+    /** Function to load a plugin module synchronously from a path. Required for plugin imports. */
     loadPlugin?: (path: string) => PluginModule,
 };
 
 /**
- * Plugin options passed from header specification.
+ * Plugin options passed from import statement.
  */
-export type PluginOptions = Record<string, string>;
+export type PluginOptions = Record<string, any>;
 
 /**
  * A plugin module that can extend the parser.
- * The default export receives the register object, plugin options, and global options.
+ * The default export receives the parser instance, global options, and plugin-specific options.
+ * The plugin function should augment/replace parse* methods on the parser.
  */
 export interface PluginModule {
-    default: (register: Register, pluginOptions: PluginOptions, globalOptions: Options) => void;
+    default: (parser: Parser, globalOptions: Options, pluginOptions: PluginOptions) => void;
 }
 
 /**

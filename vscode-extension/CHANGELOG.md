@@ -2,7 +2,7 @@
 
 All notable changes to the "tabscript" extension will be documented in this file.
 
-## [0.2.0] - 2025-12-11
+## [2.0.0] - 2025-12-11
 
 ### Added
 - Plugin support for custom syntax extensions
@@ -11,6 +11,7 @@ All notable changes to the "tabscript" extension will be documented in this file
 ### Changed
 - Uses local TabScript from `node_modules` when available, falling back to vendored copy
 - Improved description and keywords for marketplace
+- Version number now matches TabScript
 
 ### Fixed
 - Icon path now correctly references SVG file

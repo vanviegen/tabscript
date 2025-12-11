@@ -134,7 +134,7 @@ connection.onInitialize((params: InitializeParams) => {
       },
       hoverProvider: true,
       signatureHelpProvider: {
-        triggerCharacters: ['(', ',', '|', '&']
+        triggerCharacters: ['(', ',', '|', '!']
       },
       definitionProvider: true,
       renameProvider: true

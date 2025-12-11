@@ -39,7 +39,7 @@
         },
         {
           "name": "storage.type.tabscript",
-          "match": "\\b(const|let|var|function|class|interface|type|enum|namespace|module|declare|abstract|async)\\b"
+          "match": "\\b(function|class|interface|type|enum|namespace|module|declare|abstract|async)\\b"
         },
         {
           "name": "storage.modifier.tabscript",
@@ -158,19 +158,19 @@
       "patterns": [
         {
           "name": "keyword.operator.assignment.tabscript",
-          "match": ":=|::=|="
+          "match": "::|:"
         },
         {
           "name": "keyword.operator.bitwise.tabscript",
-          "match": "~bit_xor|~bit_and|~bit_or|~bit_not|~shift_left|~shift_right"
+          "match": "%bit_xor|%bit_and|%bit_or|%bit_not|%shift_left|%shift_right"
         },
         {
           "name": "keyword.operator.logical.tabscript",
-          "match": "\\b(and|or|not)\\b|&&|\\|\\||!"
+          "match": "\\b(and|or)\\b|!"
         },
         {
           "name": "keyword.operator.comparison.tabscript",
-          "match": "===|!==|==|!=|<=|>=|<|>"
+          "match": "==|!=|<=|>=|<|>|=~|!~"
         },
         {
           "name": "keyword.operator.arithmetic.tabscript",
@@ -190,15 +190,11 @@
         },
         {
           "name": "keyword.operator.arrow.tabscript",
-          "match": "=>"
+          "match": "\\.\\."
         },
         {
           "name": "punctuation.accessor.tabscript",
           "match": "\\."
-        },
-        {
-          "name": "keyword.operator.function-call.tabscript",
-          "match": "&(?=\\s)"
         }
       ]
     },
@@ -292,184 +288,6 @@
         {
           "name": "constant.language.tabscript",
           "match": "\\b(true|false|null|undefined|NaN|Infinity)\\b"
-        }
-      ]
-    },
-    "ui-tags": {
-      "patterns": [
-        {
-          "comment": "UI tag with dynamic tag name :$expression",
-          "name": "meta.tag.ui.dynamic.tabscript",
-          "begin": "^(\\s*)(:)(\\$)([a-zA-Z_$][a-zA-Z0-9_$]*)",
-          "end": "$",
-          "beginCaptures": {
-            "2": { "name": "punctuation.definition.tag.tabscript" },
-            "3": { "name": "keyword.operator.expression.tabscript" },
-            "4": { "name": "variable.other.readwrite.tabscript" }
-          },
-          "patterns": [
-            { "include": "#ui-tag-contents" }
-          ]
-        },
-        {
-          "comment": "UI tag :tagname or :.classonly",
-          "name": "meta.tag.markup.tabscript",
-          "begin": "^(\\s*)(:)([a-zA-Z][a-zA-Z0-9]*)?",
-          "end": "$",
-          "beginCaptures": {
-            "2": { "name": "punctuation.definition.tag.tabscript" },
-            "3": { "name": "entity.name.tag.tabscript" }
-          },
-          "patterns": [
-            { "include": "#ui-tag-contents" }
-          ]
-        },
-        {
-          "comment": "Standalone text content |text",
-          "name": "meta.tag.markup.text.tabscript",
-          "begin": "^(\\s*)(\\|)",
-          "end": "$",
-          "beginCaptures": {
-            "2": { "name": "punctuation.definition.string.begin.tabscript" }
-          },
-          "patterns": [
-            { "include": "#ui-text-content" }
-          ]
-        }
-      ]
-    },
-    "ui-tag-contents": {
-      "patterns": [
-        {
-          "comment": "Chained tag name",
-          "name": "entity.name.tag.chained.tabscript",
-          "match": "(?<=\\s)([a-zA-Z][a-zA-Z0-9]*)(?=\\s|\\.|:|~|=|\\||$)"
-        },
-        {
-          "comment": "CSS class .classname",
-          "name": "entity.other.attribute-name.class.tabscript",
-          "match": "\\.[a-zA-Z_-][a-zA-Z0-9_-]*"
-        },
-        {
-          "comment": "Special lifecycle method name!$ with expression",
-          "name": "meta.attribute.lifecycle.tabscript",
-          "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(!)(?:(\\$)\\s*)?",
-          "captures": {
-            "1": { "name": "support.function.lifecycle.tabscript" },
-            "2": { "name": "keyword.operator.lifecycle.tabscript" },
-            "3": { "name": "keyword.operator.expression.tabscript" }
-          }
-        },
-        {
-          "comment": "Style with expression name:$expr",
-          "name": "meta.attribute.style.expression.tabscript",
-          "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(:)(\\$)\\s*",
-          "captures": {
-            "1": { "name": "entity.other.attribute-name.style.tabscript" },
-            "2": { "name": "punctuation.separator.key-value.tabscript" },
-            "3": { "name": "keyword.operator.expression.tabscript" }
-          }
-        },
-        {
-          "comment": "Style name:value",
-          "name": "meta.attribute.style.tabscript",
-          "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(:)([^\\s|$][^\\s|]*)?",
-          "captures": {
-            "1": { "name": "entity.other.attribute-name.style.tabscript" },
-            "2": { "name": "punctuation.separator.key-value.tabscript" },
-            "3": { "name": "constant.other.style-value.tabscript" }
-          }
-        },
-        {
-          "comment": "Property with expression name~$expr",
-          "name": "meta.attribute.property.expression.tabscript",
-          "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(~)(\\$)\\s*",
-          "captures": {
-            "1": { "name": "entity.other.attribute-name.tabscript" },
-            "2": { "name": "keyword.operator.property.tabscript" },
-            "3": { "name": "keyword.operator.expression.tabscript" }
-          }
-        },
-        {
-          "comment": "Property name~value",
-          "name": "meta.attribute.property.tabscript",
-          "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(~)([^\\s|]+)?",
-          "captures": {
-            "1": { "name": "entity.other.attribute-name.tabscript" },
-            "2": { "name": "keyword.operator.property.tabscript" },
-            "3": { "name": "string.unquoted.tabscript" }
-          }
-        },
-        {
-          "comment": "Attribute with expression name=$expr or name =$ expr",
-          "name": "meta.attribute.expression.tabscript",
-          "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(\\s*)(=)(\\$)\\s*",
-          "captures": {
-            "1": { "name": "entity.other.attribute-name.tabscript" },
-            "3": { "name": "punctuation.separator.key-value.tabscript" },
-            "4": { "name": "keyword.operator.expression.tabscript" }
-          }
-        },
-        {
-          "comment": "Attribute with quoted value name=\"value\" or name='value'",
-          "name": "meta.attribute.quoted.tabscript",
-          "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(=)(\"[^\"]*\"|'[^']*'|`[^`]*`)",
-          "captures": {
-            "1": { "name": "entity.other.attribute-name.tabscript" },
-            "2": { "name": "punctuation.separator.key-value.tabscript" },
-            "3": { "name": "string.quoted.tabscript" }
-          }
-        },
-        {
-          "comment": "Attribute name=value",
-          "name": "meta.attribute.tabscript",
-          "match": "([a-zA-Z_-][a-zA-Z0-9_-]*)(=)([^\\s|\"'`]+)?",
-          "captures": {
-            "1": { "name": "entity.other.attribute-name.tabscript" },
-            "2": { "name": "punctuation.separator.key-value.tabscript" },
-            "3": { "name": "string.unquoted.tabscript" }
-          }
-        },
-        {
-          "comment": "Text content |text",
-          "name": "meta.tag.markup.text.tabscript",
-          "begin": "(\\|)",
-          "end": "$",
-          "beginCaptures": {
-            "1": { "name": "punctuation.definition.string.begin.tabscript" }
-          },
-          "patterns": [
-            { "include": "#ui-text-content" }
-          ]
-        }
-      ]
-    },
-    "ui-text-content": {
-      "patterns": [
-        {
-          "comment": "Interpolation in text ${...}",
-          "name": "meta.template.expression.tabscript",
-          "begin": "\\$\\{",
-          "end": "\\}",
-          "beginCaptures": {
-            "0": { "name": "punctuation.definition.template-expression.begin.tabscript" }
-          },
-          "endCaptures": {
-            "0": { "name": "punctuation.definition.template-expression.end.tabscript" }
-          },
-          "patterns": [
-            { "include": "$self" }
-          ]
-        },
-        {
-          "comment": "Text content",
-          "name": "string.unquoted.ui-text.tabscript",
-          "match": "[^$]+"
-        },
-        {
-          "comment": "Dollar sign not followed by brace",
-          "name": "string.unquoted.ui-text.tabscript",
-          "match": "\\$(?!\\{)"
         }
       ]
     }

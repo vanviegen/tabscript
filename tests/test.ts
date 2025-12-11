@@ -47,8 +47,8 @@ function assert(val: any): asserts val{
 
 
 const three=Math.random()<0.5? '3' : 3;
-assert( three == 3);
-assert( three !==3);
+assert(  three == 3);
+assert(  three !==3);
 
 let n=0;
 if(n > 3)n++;
@@ -65,17 +65,17 @@ if(done(n, 2))proceed();
 if(done(n, 2)){
 	proceed();}
 
-if(done( n,2)){
+if(done(  n,2)){
 	proceed();}
 
-if((done( n,2)))proceed();
+if((done(  n,2)))proceed();
 
 if(done(
 	n,
 	2)){
 
 	proceed();}
-else if((done( n,n))){
+else if((done(  n,n))){
 	rescue();}
 else{
 	halt();}
@@ -127,9 +127,9 @@ function sdf(a: any, b?: any){
 	return 123;}
 
 sdf({x:42});
-sdf( {x:42});
-sdf( '3');
-sdf( 5, 8);
+sdf(  {x:42});
+sdf(  '3');
+sdf(  5, 8);
 
 const select=(t:'a'| 'b' |  3)=>'x'+t;
 select(3);
@@ -146,8 +146,8 @@ i = i=3, i===4;
 for(const x in arr)console.log(x);
 for(const x2 of arr||[])console.log(x2);
 
-for(i=0;i<10;i++)console.log( i);
-for(let i=0;i<10;i++) console.log( i);
+for(i=0;i<10;i++)console.log(  i);
+for(let i=0;i<10;i++) console.log(  i);
 
 abstract class X<T extends Record<number,any>> extends Array<T>{
 	arg: number = 123
@@ -208,9 +208,9 @@ const date=weirdFunc<number|string>(x)<Something>();
 (3 + 4) < num || x > 2;
 
 const test=(str:TemplateStringsArray,...args:any[])=>{
-	console.log( str.join(", "),args.join(", "));
+	console.log(  str.join(", "),args.join(", "));
 	return (arg: number)=>{
-		console.log( arg);};};
+		console.log(  arg);};};
 
 test`string ${x as number} ${3+4}`;
 

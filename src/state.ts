@@ -660,7 +660,7 @@ export class State {
             
             if (targetLine != null) {
                 while (outLine < targetLine) {
-                    output += '\n';
+                    if (this.options.whitespace === 'preserve' || outCol > 1) output += '\n';
                     outLine++;
                     outCol = 1;
                 }
@@ -682,7 +682,7 @@ export class State {
                     if (!spaceCount) {
                         const nextChar = text[0];
                         if ("[(.!".indexOf(prevChar) < 0 && "[](,;):.".indexOf(nextChar) < 0) spaceCount = 1;
-                        else if (":=".indexOf(prevChar) >= 0 && "([".indexOf(nextChar) >= 0) spaceCount = 1;
+                        else if (":=,".indexOf(prevChar) >= 0 && "([".indexOf(nextChar) >= 0) spaceCount = 1;
                     }
                 }
 

@@ -1,12 +1,12 @@
 /**
  * Parser module for TabScript transpiler.
- * Contains the Parser class with all parsing methods and the Register class for plugin extensions.
+ * Contains the Parser class with all parsing methods.
  * 
  * @module parser
  */
 
 import { State, ParseGroupOpts, ParseError, pattern } from './state.js';
-import type { Options, PluginOptions, PluginModule } from './tabscript.js';
+import type { Options, PluginModule } from './tabscript.js';
 
 /**
  * TabScript language version supported by this transpiler.
@@ -21,214 +21,9 @@ const VERSION = { major: 1, minor: 0 };
  */
 export type ParserMethod = (this: Parser, s: State, ...args: any[]) => boolean | string;
 
-/**
- * Plugin method signature for `register.replace()`.
- * Receives the original method as the first argument.
- */
-export type PluginMethod = (originalMethod: ParserMethod, p: Parser, s: State, ...args: any[]) => boolean | string;
 
-/**
- * Plugin method signature for `register.before()` and `register.after()`.
- */
-export type SimplePluginMethod = (p: Parser, s: State, ...args: any[]) => boolean | string;
 
-/**
- * Register object used by plugins to extend parser functionality.
- * Provides methods for hooking into parser methods before, after, or replacing them entirely.
- * 
- * @example
- * ```tabscript
- * # Run before parseStatement, skip original if truthy
- * register.before& 'parseStatement' |p, s|
- *     if s.read& '@custom'
- *         # Handle custom syntax
- *         return true
- *     return false
- * ```
- */
-export class Register {
-    private _replacements: Map<string, PluginMethod> = new Map();
-    private _befores: Map<string, SimplePluginMethod[]> = new Map();
-    private _afters: Map<string, SimplePluginMethod[]> = new Map();
 
-    /**
-     * Creates a token matcher regex with a descriptive name for error messages.
-     * Automatically adds the sticky (/y) flag if not present.
-     * 
-     * This is the recommended way to create regex patterns for use with
-     * `s.read()`, `s.accept()`, `s.peek()`, and related methods in plugins.
-     * 
-     * @param regexp - The regular expression pattern to match tokens
-     * @param name - A descriptive name shown in error messages (e.g., "identifier", "number")
-     * @returns A new RegExp with the sticky flag and custom toString()
-     */
-    pattern(regexp: RegExp, name: string): RegExp {
-        return pattern(regexp, name);
-    }
-
-    private validateMethodName(methodName: string, action: string): void {
-        if (!methodName.startsWith('parse')) {
-            throw new Error(`${action}: method name must start with 'parse', got '${methodName}'`);
-        }
-    }
-
-    /**
-     * Replace a parser method with a custom implementation.
-     * The original method is passed as the first argument to your function.
-     * 
-     * @param methodName - Name of the parser method to replace (must start with 'parse')
-     * @param func - Replacement function receiving (originalMethod, parser, state, ...args)
-     * 
-     * @example
-     * ```tabscript
-     * register.replace& 'parseExpression' |orig, p, s|
-     *     # Custom expression parsing with fallback
-     *     if s.read& '#custom'
-     *         s.emit& '"custom_value"'
-     *         return true
-     *     return orig(s)
-     * ```
-     */
-    replace(methodName: string, func?: PluginMethod): ((func: PluginMethod) => PluginMethod) | void {
-        this.validateMethodName(methodName, `register.replace('${methodName}')`);
-        const addFunc = (f: PluginMethod) => {
-            if (this._replacements.has(methodName)) {
-                // Chain replacements: wrap the existing replacement
-                const prevReplace = this._replacements.get(methodName)!;
-                this._replacements.set(methodName, (orig, p, s, ...args) => {
-                    const wrappedOrig: ParserMethod = function(this: Parser, s: State, ...a: any[]) {
-                        return prevReplace(orig, p, s, ...a);
-                    };
-                    return f(wrappedOrig, p, s, ...args);
-                });
-            } else {
-                this._replacements.set(methodName, f);
-            }
-            return f;
-        };
-        if (func) {
-            addFunc(func);
-        } else {
-            return addFunc;
-        }
-    }
-
-    /**
-     * Add a function to run before a parser method.
-     * If your function returns truthy, the original method is skipped.
-     * 
-     * @param methodName - Name of the parser method to hook (must start with 'parse')
-     * @param func - Function receiving (parser, state, ...args)
-     * 
-     * @example
-     * ```tabscript
-     * register.before& 'parseStatement' |p, s|
-     *     if s.read& '@log'
-     *         # Handle @log syntax before normal statement parsing
-     *         return true
-     *     return false
-     * ```
-     */
-    before(methodName: string, func?: SimplePluginMethod): ((func: SimplePluginMethod) => SimplePluginMethod) | void {
-        this.validateMethodName(methodName, `register.before('${methodName}')`);
-        const addFunc = (f: SimplePluginMethod) => {
-            if (!this._befores.has(methodName)) {
-                this._befores.set(methodName, []);
-            }
-            this._befores.get(methodName)!.push(f);
-            return f;
-        };
-        if (func) {
-            addFunc(func);
-        } else {
-            return addFunc;
-        }
-    }
-
-    /**
-     * Add a function to run after a parser method fails.
-     * Only called if the original method returns falsy.
-     * 
-     * @param methodName - Name of the parser method to hook (must start with 'parse')
-     * @param func - Function receiving (parser, state, ...args)
-     * 
-     * @example
-     * ```tabscript
-     * register.after& 'parseTypeDecl' |p, s|
-     *     # Handle custom type syntax after normal type parsing fails
-     *     if s.read& '@typedef'
-     *         return true
-     *     return false
-     * ```
-     */
-    after(methodName: string, func?: SimplePluginMethod): ((func: SimplePluginMethod) => SimplePluginMethod) | void {
-        this.validateMethodName(methodName, `register.after('${methodName}')`);
-        const addFunc = (f: SimplePluginMethod) => {
-            if (!this._afters.has(methodName)) {
-                this._afters.set(methodName, []);
-            }
-            this._afters.get(methodName)!.push(f);
-            return f;
-        };
-        if (func) {
-            addFunc(func);
-        } else {
-            return addFunc;
-        }
-    }
-
-    /**
-     * Apply all registered extensions to the parser.
-     * Called internally after all plugins have registered their extensions.
-     */
-    applyTo(parser: Parser): void {
-        // Apply replacements
-        for (const [methodName, pluginMethod] of this._replacements) {
-            const originalMethod = (parser as any)[methodName] as ParserMethod | undefined;
-            if (!originalMethod) {
-                throw new Error(`Cannot replace non-existent method '${methodName}'`);
-            }
-            const boundOriginal: ParserMethod = originalMethod.bind(parser);
-            (parser as any)[methodName] = function(this: Parser, s: State, ...args: any[]) {
-                return pluginMethod(boundOriginal, parser, s, ...args);
-            };
-        }
-
-        // Apply befores
-        for (const [methodName, beforeFuncs] of this._befores) {
-            const originalMethod = (parser as any)[methodName] as ParserMethod | undefined;
-            if (!originalMethod) {
-                throw new Error(`Cannot add before hook to non-existent method '${methodName}'`);
-            }
-            const boundOriginal = originalMethod.bind(parser);
-            (parser as any)[methodName] = function(this: Parser, s: State, ...args: any[]) {
-                for (const beforeFunc of beforeFuncs) {
-                    const result = beforeFunc(parser, s, ...args);
-                    if (result) return result;
-                }
-                return boundOriginal(s, ...args);
-            };
-        }
-
-        // Apply afters
-        for (const [methodName, afterFuncs] of this._afters) {
-            const originalMethod = (parser as any)[methodName] as ParserMethod | undefined;
-            if (!originalMethod) {
-                throw new Error(`Cannot add after hook to non-existent method '${methodName}'`);
-            }
-            const boundOriginal = originalMethod.bind(parser);
-            (parser as any)[methodName] = function(this: Parser, s: State, ...args: any[]) {
-                const result = boundOriginal(s, ...args);
-                if (result) return result;
-                for (const afterFunc of afterFuncs) {
-                    const afterResult = afterFunc(parser, s, ...args);
-                    if (afterResult) return afterResult;
-                }
-                return false;
-            };
-        }
-    }
-}
 
 function descr(regexp: RegExp, name: string): RegExp {
     regexp.toString = () => '<' + name + '>';
@@ -271,13 +66,26 @@ const REPLACE_OPERATORS: Record<string, string> = {
  * - Return truthy on success, falsy on failure
  * - On failure, leave the state unchanged
  * 
- * Plugins can hook into any `parse*` method via the `register` property.
+ * Plugins can modify `parse*` methods directly on the Parser instance.
  */
 export class Parser {
-    /** Register object for plugins to extend parser functionality */
-    public register: Register = new Register();
+    constructor(public options: Options) {
+    }
 
-    constructor(public options: Options) {}
+    /**
+     * Creates a token matcher regex with a descriptive name for error messages.
+     * Automatically adds the sticky (/y) flag if not present.
+     * 
+     * This is the recommended way to create regex patterns for use with
+     * `s.read()`, `s.accept()`, `s.peek()`, and related methods in plugins.
+     * 
+     * @param regexp - The regular expression pattern to match tokens
+     * @param name - A descriptive name shown in error messages (e.g., "identifier", "number")
+     * @returns A new RegExp with the sticky flag and custom toString()
+     */
+    pattern(regexp: RegExp, name: string): RegExp {
+        return pattern(regexp, name);
+    }
 
     /**
      * Parse function parameters.
@@ -373,7 +181,7 @@ export class Parser {
 
     /**
      * Parse an expression.
-     * @example `x + 1` or `foo(bar)` or `obj.method& arg1 arg2`
+     * @example `x + 1` or `foo(bar)` or `obj.method.. arg1 arg2`
      */
     parseExpression(s: State, withinTag = false): boolean {
         let required = false;
@@ -392,14 +200,14 @@ export class Parser {
         let tmp: string | undefined;
         while (!s.justAfterNewLine()) {
             const lastNotSpace = s.lastNotSpace();
-            // Function call '(' may not be preceded by whitespace (to distinguish from `myFunc& a (3+4)` syntax)
+            // Function call '(' may not be preceded by whitespace (to distinguish from `myFunc.. a (3+4)` syntax)
             if (lastNotSpace && s.parseGroup({ open: '(', close: ')', next: ',' }, () => {
                 if (s.accept('...')) return !!s.must(this.parseExpression(s));
                 else return !!this.parseExpression(s);
             })) {}
-            else if (s.read('&')) {
+            else if (s.read('..')) {
                 if (!s.parseGroup({ jsOpen: '(', jsClose: ')', jsNext: ',', allowImplicit: true, endNext: false }, () => !!this.parseExpression(s))) {
-                    // func& arg1 arg2  (no indent, space-separated args)
+                    // func.. arg1 arg2  (no indent, space-separated args)
                     s.emit('(');
                     let snap: ReturnType<typeof s.snapshot> | undefined;
                     while (this.parseExpression(s)) {
@@ -416,7 +224,7 @@ export class Parser {
             else if (s.accept('++') || s.accept('--')) {}
             else if (s.acceptType('as')) s.must(this.parseType(s));
             else if (s.accept('?.')) s.must(s.accept(IDENTIFIER) || this.parseIndex(s));
-            else if (!s.peek('..') && s.accept('.')) s.must(s.accept(IDENTIFIER));
+            else if (s.accept('.')) s.must(s.accept(IDENTIFIER));
             else if (lastNotSpace && this.parseTemplateArg(s)) {}
             else if (withinTag && s.peek('>')) return true;
             else if (tmp = s.read(OPERATOR)) {
@@ -638,8 +446,8 @@ export class Parser {
     }
 
     /**
-     * Parse the TabScript header line and load any plugins.
-     * Header format: tabscript X.Y [plugin=path (options...)] ...
+     * Parse the TabScript header line.
+     * Header format: tabscript X.Y
      */
     parseHeader(s: State): boolean {
         // Parse: tabscript X.Y
@@ -653,64 +461,11 @@ export class Parser {
                 `Script version ${major}.${minor} outside supported range (${VERSION.major}.0 - ${VERSION.major}.${VERSION.minor})`);
         }
 
-        const plugins: Array<{ path: string, options: PluginOptions }> = [];
-
-        // Parse options and plugins until newline
-        while (!s.peek('\n') && s.hasMore()) {
-            const key = s.read(IDENTIFIER);
-            if (!key) break;
-            
-            if (!s.read('=')) break;  // Not a key=value pair, stop parsing
-            
-            if (key === 'plugin') {
-                // plugin=path/to/plugin.js (key=value ...)
-                const path = s.must(s.read(PATH) || s.read(STRING));
-                const pluginOpts: PluginOptions = {};
-                
-                if (s.read('(')) {
-                    while (!s.read(')')) {
-                        const optKey = s.read(IDENTIFIER);
-                        if (!optKey) break;
-                        s.must(s.read('='));
-                        const optVal = s.read(STRING) || s.read(IDENTIFIER) || s.read(INTEGER);
-                        if (optVal) {
-                            // Strip quotes from string values
-                            pluginOpts[optKey] = optVal.startsWith('"') || optVal.startsWith("'") 
-                                ? optVal.slice(1, -1) 
-                                : optVal;
-                        }
-                    }
-                }
-                
-                plugins.push({ 
-                    path: path.startsWith('"') || path.startsWith("'") ? path.slice(1, -1) : path, 
-                    options: pluginOpts 
-                });
-            } else {
-                // Other header options - skip the value
-                s.read(STRING) || s.read(IDENTIFIER) || s.read(INTEGER);
-            }
-        }
-
         // Consume newline at end of header
         s.must(s.readNewline());
 
         // Clear target position so next statement gets correct line mapping
         s.clearTargetPos();
-
-        // Load and apply plugins
-        if (plugins.length > 0) {
-            if (!this.options.loadPlugin) {
-                throw new Error('Plugins specified in header, but loadPlugin not in options');
-            }
-            for (const pluginSpec of plugins) {
-                const pluginModule = this.options.loadPlugin(pluginSpec.path);
-                // Handle both ES module default exports and CommonJS module.exports
-                const pluginFn = (pluginModule.default || pluginModule) as PluginModule['default'];
-                pluginFn(this.register, pluginSpec.options, this.options);
-            }
-            this.register.applyTo(this);
-        }
 
         return true;
     }
@@ -877,6 +632,33 @@ export class Parser {
     parseImport(s: State): boolean {
         const snap = s.snapshot();
         if (!s.accept('import')) return false;
+        
+        // Check for plugin import: import plugin "path" {options}
+        if (s.read('plugin')) {
+            snap.revertOutput(); // Don't emit anything for plugin imports
+            const pathStr = s.must(s.read(STRING));
+            const pluginPath = pathStr.slice(1, -1); // Remove quotes
+            
+            // Parse optional plugin options - parse, capture output, then eval as JS object
+            let pluginOptions = {};
+            if (this.parseLiteralObject(s)) {
+                const tokens = snap.revertOutput();
+                pluginOptions = Function('return ' + tokens.filter(t => typeof t === 'string').join(' '))();
+            }
+            
+            if (!this.options.loadPlugin) {
+                throw new Error('Plugin import found, but loadPlugin not in options');
+            }
+            
+            const pluginModule = this.options.loadPlugin(pluginPath);
+            // Handle both ES module default exports and CommonJS module.exports
+            const pluginFn = (pluginModule.default || pluginModule) as PluginModule['default'];
+            pluginFn(this, this.options, pluginOptions);
+            
+            // Clear target position so next statement gets correct line mapping
+            s.clearTargetPos();
+            return true;
+        }
         
         // Check for type-only import - strip entire statement in JS mode
         const isTypeImport = !!s.acceptType('type');

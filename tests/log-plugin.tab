@@ -3,8 +3,8 @@ tabscript 1.0
 # Logging plugin for TabScript.
 # Adds @log prefix to variable declarations to automatically log function calls.
 #
-# Usage in header:
-#   tabscript 1.0 plugin=log-plugin.tab
+# Usage:
+#   import plugin "log-plugin.tab"
 #
 # Syntax:
 #   @log myFunc := |x: number| x * 2
@@ -12,54 +12,60 @@ tabscript 1.0
 #
 # @module plugins/log
 
-import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
+import type {Parser, State, Options, PluginOptions} from "tabscript"
 
 # Create the logging plugin parser extensions.
-export default function createLogPlugin|register: Register, pluginOptions: PluginOptions, globalOptions: Options|
-	IDENTIFIER := register.pattern& /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
+export default function createLogPlugin|p: Parser, globalOptions: Options, pluginOptions: PluginOptions|
+	IDENTIFIER := p.pattern.. /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
+
+	# Keep reference to original parseStatement
+	origParseStatement := p.parseStatement.bind(p)
 
 	# Parse @log prefix before variable declarations
-	parseLogDecl := |p: Parser, s: State|
-		if !s.read& '@log'
+	parseLogDecl := |s: State|
+		if !s.read.. '@log'
 			return false
 
 		# Get the variable name
-		name := s.must& s.read& IDENTIFIER
-		s.must& s.read& ':'
+		name := s.must.. s.read.. IDENTIFIER
+		s.must.. s.read.. ':'
 
-		isLet := !!s.read& ':'
-		s.emit& (isLet ? 'let ' : 'const ') + name
+		isLet := !!s.read.. ':'
+		s.emit.. (isLet ? 'let ' : 'const ') + name
 
 		# Parse the type annotation if present
 		snap := s.snapshot()
 		if !globalOptions.js
-			s.emit& ':'
+			s.emit.. ':'
 		if !p.parseType(s)
 			snap.revertOutput()
 
 		# Must have assignment
-		s.must& s.read& '='
+		s.must.. s.read.. '='
 
 		# Check if it's a function
-		if s.peek& '|'
+		if s.peek.. '|'
 			# It's a function - wrap with logging
-			s.emit& '=('
-			s.must& p.parseFuncParams(s)
-			s.emit& '=>{console.log(' + JSON.stringify(name) + ',...arguments);'
+			s.emit.. '=('
+			s.must.. p.parseFuncParams(s)
+			s.emit.. '=>{console.log(' + JSON.stringify(name) + ',...arguments);'
 			
 			# Try to parse a block, otherwise parse single expression with return
-			if !s.parseGroup& {jsOpen: '', jsClose: '', next: ';', jsNext: null, allowImplicit: true} || s.recoverErrors& || p.parseStatement(s)
-				s.emit& 'return('
-				s.must& p.parseExpression(s)
-				s.emit& ');'
-			s.emit& '})'
+			if !s.parseGroup.. {jsOpen: '', jsClose: '', next: ';', jsNext: null, allowImplicit: true} || s.recoverErrors.. || p.parseStatement(s)
+				s.emit.. 'return('
+				s.must.. p.parseExpression(s)
+				s.emit.. ');'
+			s.emit.. '})'
 		else
 			# Not a function - just log the initial value
-			s.emit& '=(()=>{const _v='
-			s.must& p.parseExpression(s)
-			s.emit& ';console.log(' + JSON.stringify(name) + ',_v);return _v;})()'
+			s.emit.. '=(()=>{const _v='
+			s.must.. p.parseExpression(s)
+			s.emit.. ';console.log(' + JSON.stringify(name) + ',_v);return _v;})()'
 
 		return true
 
-	# Register to run before parseStatement to catch @log declarations
-	register.before& 'parseStatement' parseLogDecl
+	# Replace parseStatement to catch @log declarations before other statements
+	p.parseStatement = |s: State|
+		if parseLogDecl(s)
+			return true
+		return origParseStatement(s)

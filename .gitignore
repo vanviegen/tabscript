@@ -4,5 +4,6 @@ dist-min
 dist-docs
 node_modules
 vscode-extension/out
+vscode-extension/tabscript
 vscode-extension/*.vsix
-.trees
+docs/custom.js

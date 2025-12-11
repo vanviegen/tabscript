@@ -1,4 +1,5 @@
 
+
 const A=(...args:any[])=>0;
 
 
@@ -36,7 +37,7 @@ A(`#`,"Some text ${variable} more text");
 
 
 A(function(){
-	console.log( "do reactive things");});
+	console.log(  "do reactive things");});
 
 
 A(`.some-class`);
@@ -57,7 +58,7 @@ A(`input type=text name=username placeholder=`,"Your name",`color:blue fontSize:
 
 A(`input value=`,true,`placeholder=`,`Test${42}`);
 
-const tag="d"+"iv";
+	const tag="d"+"iv";
 A(`${tag}#`,`T${'e'+'x'}t`);
 
 A(`div span b#`,"Hi mom");
@@ -114,7 +115,7 @@ A(`.item color:blue`);
 
 
 A(`div`,function(){
-		A(`span.label#`,"Label:");
+	A(`span.label#`,"Label:");
 	const val=123;
 	A(`input type=text value=`,val);});
 
@@ -126,14 +127,14 @@ A(`div`,function(){
 
 const something=true;
 A(`div`,function(){
-	if(something){
+		if(something){
 		A(`.myclass`);}
 	A(`id=test`);
 	A(`data-value=`,`${"x "+"y"}`);
 	A(`data-value2=`,"x "+"y");
 	A(`click=`,()=>{
-		console.log( "Clicked");});
+		console.log(  "Clicked");});
 	A(`destroy=`,()=>{
-		console.log( "Destroyed");});
+		console.log(  "Destroyed");});
 	const x=42;
 	A(`value=`,x);});

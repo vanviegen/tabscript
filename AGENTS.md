@@ -29,7 +29,7 @@ npm run build-docs
 This builds the project, generates documentation using TypeDoc (configured in `typedoc.json`), and copies the transpiler to `dist-docs/assets/tabscript/` for use by the live code editor. The documentation includes:
 - API documentation from JSDoc comments in source files
 - Tutorial and other markdown files from `docs/` directory
-- Live interactive code examples powered by `docs/live-code.js` (injected via TypeDoc's `customJs` option)
+- Live interactive code examples powered by `docs/custom.js` (injected via TypeDoc's `customJs` option)
 
 Deploy documentation to production:
 ```bash
@@ -89,7 +89,7 @@ cd vscode-extension && npx vsce package
 
 **`src/tabscript.ts`** - Main transpiler entry point. Exports the `transpile` function, type definitions, and re-exports plugin development types from `state.ts` and `parser.ts`.
 
-**`src/parser.ts`** - Recursive descent parser with all `parse*()` methods. Contains the `Parser` class and `Register` class for plugin extensions.
+**`src/parser.ts`** - Recursive descent parser with all `parse*()` methods. Contains the `Parser` class.
 
 **`src/state.ts`** - Input/output state management. Contains the `State` class with token reading, output emission, and snapshot/revert functionality.
 
@@ -99,11 +99,27 @@ cd vscode-extension && npx vsce package
 
 ### Plugin System
 
-Plugins extend the parser by registering hooks via the `Register` class:
+Plugins are loaded using the `import plugin "path"` syntax and receive the Parser instance directly. They extend the parser by augmenting/replacing `parse*` methods:
 
-- **`register.before(methodName, func)`** - Run before a parser method; if truthy result, skip original
-- **`register.after(methodName, func)`** - Run after a parser method if it returned falsy
-- **`register.replace(methodName, func)`** - Replace a parser method entirely (receives original as first arg)
+```ts
+import plugin "my-plugin.tab"
+```
+
+The plugin module exports a default function that receives `(parser, options)`. To modify parser behavior, save a reference to the original method and replace it:
+
+```ts
+const MY_PATTERN = p.pattern(/myregex/, 'Human-friendly Name');
+const origParseStatement = p.parseStatement.bind(p);
+p.parseStatement = (s) => {
+    if (s.read(MY_PATTERN)) {
+        s.emit('/* custom output */');
+        return true;
+    }
+    return origParseStatement(s);
+};
+```
+
+You'll usually want to insert yourself before or after a parsing method with similar precedence. It's usually not needed and error-prone to wrap core methods such as `parseExpression`. 
 
 Example plugins:
 - **`tests/markup-plugin.tab`** - Complex UI syntax plugin (`:div.class attr=value`)

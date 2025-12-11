@@ -1,8 +1,8 @@
 # TabScript
 
-TabScript is an indentation-based syntax for TypeScript, designed for building clean domain-specific languages (DSLs) with the full power of TypeScript's type system. Think CoffeeScript for the modern age: indentation replaces braces and common patterns get shorter syntax.
+TabScript is an alternative syntax for TypeScript. Think CoffeeScript for the modern age: indentation replaces braces and common patterns get shorter syntax.
 
-What makes TabScript special is its **plugin system**: you can extend the language with custom syntax tailored to your domain, while still leveraging TypeScript's complete type checking and IDE (VSCode only for now) support.
+TabScript is especially well-suited for building domain-specific languages thanks to its plugin system that lets you extend the language with custom syntax, while still leveraging TypeScript's complete type checking and IDE (VSCode only for now) support.
 
 **[📚 Read the full documentation and interactive tutorial](https://tabscript.vanviegen.net/TabScript_Tutorial/)**
 
@@ -21,13 +21,16 @@ interface User
 	active: boolean
 
 processUsers := |users: User[]|
-	# Call filter using & syntax to avoid parentheses
-	active := users.filter& |u| u.active and u.age >= 18
+	# Call filter method using .. syntax to avoid parentheses
+	active := users.filter.. |u| u.active and u.age >= 18
 
+	# The : below causes `user` to be declared as a const
 	for user: of active
 		if user.role == "admin" or user.permissions.includes("write")
 			greet(user.name)
 ```
+
+<div class="hide-in-typedoc">
 
 Transpiles to TypeScript:
 
@@ -51,6 +54,8 @@ const processUsers = (users: User[]) => {
 };
 ```
 
+</div>
+
 ## Installation
 
 ```bash
@@ -73,8 +78,7 @@ tabscript input.tab --whitespace pretty --output output.ts
 ## Key Features
 
 - **Indentation-based syntax** - No braces required
-- **Shorthand operators** - `:=` for const, `::=` for let, `||` for function params, `&` for function calls
-- **Readable operators** - `and`/`or` instead of `&&`/`||`, strict equality by default
+- **Shorthands** - `:=` for const, `::=` for let, `||` for function params, `!` for function calls
 - **All of TypeScript** - Complete type system support
 - **Plugin system** - Extend the language with custom syntax for your DSL
 - **VSCode extension** - Full IntelliSense and type checking
@@ -82,99 +86,20 @@ tabscript input.tab --whitespace pretty --output output.ts
 
 ## Plugin System
 
-TabScript's plugin system lets you extend the language with custom syntax. Plugins are specified in the file header and can be written in TabScript or JavaScript.
-
-The transpiler is lexer-less and single-pass (no AST), making it best suited for superficial syntax transformations that map cleanly to TypeScript constructs.
-
-### Using Plugins
-
-Specify plugins in your file header with paths relative to the current file:
-
-```tabscript
-tabscript 1.0 plugin=./my-plugin.tab (option=value)
-
-# Now use custom syntax defined by the plugin
-```
-
-### Example: Simple Logging Plugin
-
-Here's a simple plugin that adds an `@log` decorator for automatic function call logging:
+TabScript's plugin system lets you extend the language with custom syntax. For example, you could add an `@log` decorator that automatically logs function calls:
 
 ```tabscript
 tabscript 1.0
-
-import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
-
-export default function createLogPlugin|register: Register, pluginOptions: PluginOptions, globalOptions: Options|
-	IDENTIFIER := /[a-zA-Z_$][0-9a-zA-Z_$]*/y
-
-	parseLogDecl := |p: Parser, s: State|
-		if !s.read& '@log'
-			return false
-
-		name := s.must& s.read& IDENTIFIER
-		s.must& s.read& ':'
-		s.emit& 'const ' + name + '=('
-		s.must& p.parseFuncParams(s)
-		s.emit& '=>{console.log(' + JSON.stringify(name) + ',...arguments);return('
-		s.must& p.parseExpression(s)
-		s.emit& ');})'
-		return true
-
-	register.before& 'parseStatement' parseLogDecl
-```
-
-Usage:
-```tabscript
-tabscript 1.0 plugin=log-plugin.tab
+import plugin "./log-plugin.tab"
 
 @log add := |a: number, b: number| a + b
 
 result := add(1, 2)  # Logs: "add" 1 2
 ```
 
-### Writing Plugins
+See the [full documentation](https://tabscript.vanviegen.net/TabScript_Tutorial/) for details on writing plugins, including the implementation of the `log-plugin.tab` used above.
 
-Plugins are modules that export a default function receiving three arguments:
-
-- **`register`** - Object for hooking into parser methods
-- **`pluginOptions`** - Key-value options from the header `(key=value ...)`  
-- **`globalOptions`** - Global transpiler options (debug, js, recover, etc.)
-
-#### Register Methods
-
-- **`register.before(methodName, func)`** - Run before a parser method. If your function returns truthy, the original method is skipped.
-- **`register.after(methodName, func)`** - Run after a parser method, only if it returned falsy.
-- **`register.replace(methodName, func)`** - Replace a method entirely. Receives the original method as the first argument.
-
-#### State API
-
-The `State` object provides these key methods for plugins:
-
-| Method | Description |
-|--------|-------------|
-| `s.read(pattern...)` | Consume tokens without emitting. Returns `undefined` if no match. |
-| `s.emit(str...)` | Add strings to output. Numbers set source positions. |
-| `s.accept(pattern...)` | Like `read()` but also emits matched tokens. |
-| `s.acceptType(pattern...)` | Like `accept()` but output suppressed when `js=true`. |
-| `s.peek(pattern...)` | Like `read` but reverts position afterwards. |
-| `s.snapshot()` | Returns snapshot with `revert()`, `revertOutput()`, `hasOutput()`. |
-| `s.must(value)` | Throws ParseError if value is falsy. Returns value on success. |
-| `s.parseGroup(opts, itemFunc)` | Parse delimited/indented groups. |
-| `s.recoverErrors(func)` | Try/catch with error recovery support. |
-
-#### Parser Methods
-
-You can hook into any `parse*` method. Common ones include:
-
-- `parseStatement` - Top-level statements
-- `parseExpression` - Expressions  
-- `parseType` - Type annotations
-- `parseTypeDecl` - Type declarations (`type X = ...`)
-
-**Parser method contract:** Return truthy on success, falsy on failure. Leave state unchanged on failure.
-
-> ⚠️ **Experimental API**: The plugin interface is still evolving. Expect breaking changes in minor releases until the API stabilizes. Pin your TabScript version if stability is critical.
+As TabScript uses a lexer-less transpiler architecture and plugins can hook into any part of the parser, just about any syntax extension you can think of is possible. However, as the transpiler is single-pass and doesn't construct an AST, it is best suited for superficial transformations that map cleanly to TypeScript constructs.
 
 ## Browser Usage
 
@@ -188,7 +113,7 @@ For in-browser transpilation:
 
 <script type="text/tabscript">
   tabscript 1.0
-  console.log& "Hello from TabScript!"
+  console.log.. "Hello from TabScript!"
 </script>
 ```
 

@@ -1,6 +1,6 @@
 {
     "name": "tabscript",
-    "version": "0.2.0",
+    "version": "2.0.0",
     "description": "Indentation-based TypeScript syntax for building clean DSLs with plugin support.",
     "main": "dist-min/tabscript.js",
     "files": [
@@ -12,14 +12,14 @@
     "exports": {
         ".": {
             "bun": "./src/tabscript.ts",
-            "default": "./dist-min/tabscript.js",
             "development": "./dist/tabscript.js",
-            "types": "./dist/tabscript.d.ts"
+            "types": "./dist/tabscript.d.ts",
+            "default": "./dist-min/tabscript.js"
         },
         "./browser": {
-            "default": "./dist-min/browser.js",
             "development": "./dist/browser.js",
-            "types": "./dist/browser.d.ts"
+            "types": "./dist/browser.d.ts",
+            "default": "./dist-min/browser.js"
         },
         "./package.json": "./package.json"
     },
@@ -27,7 +27,7 @@
         "build": "rm -rf dist dist-min ; tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts && chmod a+x dist/cli.js && mkdir -p dist-min && for f in dist/*.js; do terser --module --mangle module --keep-fnames --source-map -o dist-min/$(basename $f) -- $f; done && cp dist/*.d.ts dist-min",
         "build-extension": "cd vscode-extension && tsc -p .",
         "build-all": "npm run build && npm run build-extension",
-        "build-docs": "npm run build && typedoc && rm -rf dist-docs/assets/tabscript && cp -r dist dist-docs/assets/tabscript && cp vscode-extension/syntaxes/tabscript.tmLanguage.json dist-docs/assets/tabscript/",
+        "build-docs": "npm run build && npx esbuild docs/custom.src.js --bundle --format=esm --minify --outfile=docs/custom.js && typedoc && rm -rf dist-docs/assets/tabscript && cp -r dist dist-docs/assets/tabscript && cp vscode-extension/syntaxes/tabscript.tmLanguage.json dist-docs/assets/tabscript/",
         "deploy-docs": "npm run build-docs && rsync -avz --delete dist-docs/ frank@tabscript.vanviegen.net:webcentral-projects/tabscript.vanviegen.net/public/",
         "watch": "tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts --watch",
         "watch-extension": "cd vscode-extension && tsc -p . --watch",
@@ -60,12 +60,16 @@
     },
     "homepage": "https://github.com/vanviegen/tabscript#readme",
     "devDependencies": {
+        "@shikijs/langs": "^3.19.0",
+        "@shikijs/themes": "^3.19.0",
         "@types/node": "^24.10.0",
         "@types/vscode": "^1.85.0",
         "@typescript-eslint/eslint-plugin": "^6.13.0",
         "@typescript-eslint/parser": "^6.13.0",
         "@vscode/vsce": "^2.22.0",
+        "esbuild": "^0.27.1",
         "eslint": "^8.55.0",
+        "shiki": "^3.19.0",
         "terser": "^5.39.0",
         "typedoc": "^0.28.2",
         "typescript": "^5.8.3"

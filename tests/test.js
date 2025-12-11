@@ -47,8 +47,8 @@ function assert(val){
 
 
 const three=Math.random()<0.5? '3' : 3;
-assert( three == 3);
-assert( three !==3);
+assert(  three == 3);
+assert(  three !==3);
 
 let n=0;
 if(n > 3)n++;
@@ -65,17 +65,17 @@ if(done(n, 2))proceed();
 if(done(n, 2)){
 	proceed();}
 
-if(done( n,2)){
+if(done(  n,2)){
 	proceed();}
 
-if((done( n,2)))proceed();
+if((done(  n,2)))proceed();
 
 if(done(
 	n,
 	2)){
 
 	proceed();}
-else if((done( n,n))){
+else if((done(  n,n))){
 	rescue();}
 else{
 	halt();}
@@ -127,9 +127,9 @@ function sdf(a     , b){
 	return 123;}
 
 sdf({x:42});
-sdf( {x:42});
-sdf( '3');
-sdf( 5, 8);
+sdf(  {x:42});
+sdf(  '3');
+sdf(  5, 8);
 
 const select=(t)=>             'x'+t;
 select(3);
@@ -146,8 +146,8 @@ i = i=3, i===4;
 for(const x in arr)console.log(x);
 for(const x2 of arr||[])console.log(x2);
 
-for(i=0;i<10;i++)console.log( i);
-for(let i=0;i<10;i++) console.log( i);
+for(i=0;i<10;i++)console.log(  i);
+for(let i=0;i<10;i++) console.log(  i);
 
 									class X                               extends Array{
 	arg         = 123
@@ -167,7 +167,7 @@ const XXXX=class name{
 
 new XXXX               ();
 
-const text=`This ${sdf(2,('3'               ))}${`works`}`;
+const text=`This ${sdf(2,('3'                ))}${`works`}`;
 
 var E2 = (function (E2) {
 	E2[(E2["A"] = 0)] = "A";
@@ -208,9 +208,9 @@ const date=weirdFunc               (x)           ();
 (3 + 4) < num || x > 2;
 
 const test=(str                   , ...args)=>{
-	console.log( str.join(", "),args.join(", "));
+	console.log(  str.join(", "),args.join(", "));
 	return (arg)=>{
-		console.log( arg);};};
+		console.log(  arg);};};
 
 test`string ${x          } ${3+4}`;
 

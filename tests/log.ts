@@ -1,6 +1,7 @@
 
 
 
+
 const add =((a: number, b: number)=>{console.log("add",...arguments);return(a+b);})
 
 
@@ -14,7 +15,7 @@ const normalFunc=(x:number)=>x*2;
 
 
 const result=add(1,2);
-console.log( "Result: ${result}");
+console.log(  "Result: ${result}");
 
 const doubled=multiply(3,4);
-console.log( "Multiplied: ${doubled}");
+console.log(  "Multiplied: ${doubled}");

@@ -6,8 +6,6 @@ title: TabScript Tutorial
 
 TabScript is an alternate syntax for TypeScript that replaces braces with indentation and introduces shorthand operators while maintaining full TypeScript compatibility. The compiler outputs clean TypeScript or JavaScript.
 
-The transpiler is **lexer-less and single-pass** — it reads input and emits output simultaneously without building an AST. This makes it fast and simple but best suited for superficial syntax transformations. Plugins work at the token level, making them ideal for DSLs that map cleanly to underlying TypeScript constructs.
-
 ## Getting Started
 
 Let's start with a complete example that showcases TabScript's clean syntax:
@@ -22,16 +20,16 @@ interface Task
 
 # Arrow function with := (const)
 filterTasks := |tasks: Task[], status: "done" or "pending"|
-	tasks.filter& |t| t.status == status and t.priority > 0
+	tasks.filter.. |t| t.status == status and t.priority > 0
 
 # Single expression functions
 getHighPriority := |tasks: Task[]|
-	tasks.filter& |t| t.priority >= 8
+	tasks.filter.. |t| t.priority >= 8
 
 # Named function
 function printTaskStats|tasks: Task[]|
-	completed := filterTasks& tasks "done"
-	pending := filterTasks& tasks "pending"
+	completed := filterTasks.. tasks "done"
+	pending := filterTasks.. tasks "pending"
 
 	# for-of with : declares a const
 	for task: of getHighPriority(pending)
@@ -41,13 +39,12 @@ function printTaskStats|tasks: Task[]|
 		console.log(`Completed ${completed.length} tasks!`)
 ```
 
-Notice how TabScript removes visual clutter:
-- **No braces** - indentation defines blocks
-- **`:` and `::`** - declare const and let variables
-- **`||` syntax** - cleaner function parameters
-- **`&` operator** - space-separated function arguments
-- **`and`/`or`** - more readable than `&&`/`||`
-- **`==` is strict** - safe by default (transpiles to `===`)
+A few things to note:
+- **Header** declaring the TabScript version.
+- **Tab** indentation (no spaces, hence the name) defines code blocks.
+- **Declarations** use `:=` for `const` and `::=` for `let`.
+- **Functions** are defined by wrapping '||' around the parameters.
+- **Equality** operators are strict by default (`==` means `===`).
 
 ## Variables
 
@@ -75,7 +72,7 @@ value : string or undefined
 
 Functions use `||` to wrap parameters instead of `()`. For arrow functions, you can omit braces when returning an expression.
 
-Note that we're leaving out the required 'tabscript 1.0' header in the following examples for brevity.
+Note that we're leaving out the required `tabscript 1.0` header in the following examples for brevity.
 
 ```tabscript
 # Arrow functions
@@ -99,22 +96,22 @@ identity := <T>|x: T| x
 
 ## Function Calls
 
-Use `&` to call functions with space-separated arguments or one argument per line for cleaner syntax.
+Use `..` to call functions with space-separated arguments or one argument per line for cleaner syntax.
 
 ```tabscript
 # Regular call (traditional syntax still works)
 result := func(a, b)
 
-# Call with & and space-separated args
-result := func& a b
+# Call with .. and space-separated args
+result := func.. a b
 
-# Call with & and indented args
-result := func&
+# Call with .. and indented args
+result := func..
 	a
 	b
 
 # Passing in an anonymous function as argument
-processData& options |item|
+processData.. options |item|
 	item.value *= 2
 ```
 
@@ -215,7 +212,7 @@ if getValue()?
 
 ### Binary Operators
 
-Binary operators and modulo use verbose names with a `%` prefix.
+Binary operators and modulo use verbose names with a `%` prefix. They should be relatively uncommon, so this makes their use more explicit and frees up symbols for other, more frequently used, constructs.
 
 ```tabscript
 # Bitwise operations
@@ -331,25 +328,29 @@ enum Direction { Up, Down, Left, Right }
 
 TabScript's plugin system lets you extend the language with custom syntax tailored to your domain. Plugins hook into the parser to recognize new syntax patterns and emit custom output while maintaining full IDE support.
 
+The transpiler is **lexer-less and single-pass** — it reads input and emits output simultaneously without building an AST. This makes it fast and simple but best suited for transformations that map cleanly to underlying TypeScript constructs.
+
 ### Using Plugins
 
-Specify plugins in your file header after the version number:
+Import plugins using the `import plugin` statement:
 
 ```tabscript
-tabscript 1.0 plugin=./my-plugin.tab
+tabscript 1.0
+import plugin "./my-plugin.tab"
 ```
 
-You can load multiple plugins and pass options:
+You can pass options to plugins using an object literal:
 
 ```tabscript
-tabscript 1.0 plugin=./markup.tab (function=UI) plugin=./logging.js
+tabscript 1.0
+import plugin "./markup.tab" {function: "UI", debug: true}
 ```
 
-Plugins can be written in TabScript (`.tab`) or JavaScript (`.js`).
+Plugins can be loaded at any point in the file and take effect immediately. They can be written in TabScript (`.tab`) or JavaScript (`.js`).
 
 ### How Plugins Work
 
-Plugins register hooks that run before, after, or instead of parser methods. The parser uses methods like `parseStatement`, `parseExpression`, and `parseType` to process different parts of the syntax. Plugins can intercept these to add new syntax.
+Plugins receive the Parser instance and can directly modify its `parse*` methods. The parser uses methods like `parseStatement`, `parseExpression`, and `parseType` to process different parts of the syntax. Plugins can replace or wrap these methods to add new syntax.
 
 ### Writing a Simple Plugin
 
@@ -358,29 +359,33 @@ Here's a plugin that adds an `@log` decorator for automatic function call loggin
 ```tabscript
 tabscript 1.0
 
-import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
+import type {Parser, State, Options} from "tabscript"
 
-export default function|register: Register, pluginOptions: PluginOptions, options: Options|
-	IDENTIFIER := register.pattern& /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
+export default function|p: Parser, options: Options|
+	IDENTIFIER := p.pattern.. /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
 
-	register.before& 'parseStatement' |p: Parser, s: State|
-		if !s.read& '@log'
-			return false
+	# Keep reference to original parseStatement
+	origParseStatement := p.parseStatement.bind(p)
+
+	# Replace parseStatement to handle @log before other statements
+	p.parseStatement = |s: State|
+		if !s.read.. '@log'
+			return origParseStatement(s)
 
 		# Parse: @log name := |args| body
-		name := s.must& s.read& IDENTIFIER
-		s.must& s.read& ':'
-		isLet := !!s.read& ':'
-		s.emit& (isLet ? 'let ' : 'const ') + name
+		name := s.must.. s.read.. IDENTIFIER
+		s.must.. s.read.. ':'
+		isLet := !!s.read.. ':'
+		s.emit.. (isLet ? 'let ' : 'const ') + name
 
-		s.must& s.read& '='
+		s.must.. s.read.. '='
 
 		# Wrap function with logging
-		s.emit& '=('
-		s.must& p.parseFuncParams(s)
-		s.emit& '=>{console.log(' + JSON.stringify(name) + ',...arguments);return('
-		s.must& p.parseExpression(s)
-		s.emit& ');})'
+		s.emit.. '=('
+		s.must.. p.parseFuncParams(s)
+		s.emit.. '=>{console.log(' + JSON.stringify(name) + ',...arguments);return('
+		s.must.. p.parseExpression(s)
+		s.emit.. ');})'
 
 		return true
 ```
@@ -388,7 +393,8 @@ export default function|register: Register, pluginOptions: PluginOptions, option
 Usage:
 
 ```tabscript
-tabscript 1.0 plugin=./log-plugin.tab
+tabscript 1.0
+import plugin "./log-plugin.tab"
 
 @log add := |a: number, b: number| a + b
 
@@ -399,53 +405,40 @@ result := add(1, 2)  # Logs: "add" 1 2
 
 Plugins export a default function that receives three arguments:
 
-- **`register`** - Object with methods to hook into parser
-- **`pluginOptions`** - Options passed in parentheses after plugin path
+- **`parser`** - The Parser instance with all `parse*` methods
 - **`options`** - Global transpiler options (includes `js` flag)
+- **`pluginOptions`** - Options passed in the object literal after the plugin path
 
-#### Register Methods
+#### Modifying Parser Methods
 
-**`register.before(methodName, func)`** - Run before a parser method. If your function returns truthy, the original method is skipped.
+To add custom syntax, save a reference to the original method and replace it with your own:
 
 ```tabscript
-register.before& 'parseStatement' |p, s|
-	if s.read& '@custom'
+# Save original method
+origParseStatement := p.parseStatement.bind(p)
+
+# Replace with custom implementation
+p.parseStatement = |s: State|
+	if s.read.. '@custom'
 		# Handle custom syntax
 		return true
-	return false
-```
-
-**`register.after(methodName, func)`** - Run after a parser method only if it returned falsy (failed to parse).
-
-```tabscript
-register.after& 'parseExpression' |p, s|
-	# Try custom expression syntax when standard parsing fails
-	if s.read& '#'
-		s.emit& '"hash_value"'
-		return true
-	return false
-```
-
-**`register.replace(methodName, func)`** - Completely replace a parser method. Receives the original method as the first argument.
-
-```tabscript
-register.replace& 'parseExpression' |orig, p, s|
-	# Try custom syntax first
-	if s.read& '#custom'
-		s.emit& '"custom"'
-		return true
 	# Fall back to original
-	return orig(s)
+	return origParseStatement(s)
 ```
+
+Common patterns:
+- **Run before original**: Check for your syntax first, fall back to original if not matched
+- **Run after original**: Call original first, try your syntax if it returns false
+- **Wrap original**: Add behavior before/after calling the original
 
 #### Token Matchers
 
-Use `register.pattern(regex, name)` to create regex patterns for token matching. It automatically adds the sticky (`/y`) flag and provides descriptive error messages:
+Use `p.pattern(regex, name)` to create regex patterns for token matching. It automatically adds the sticky (`/y`) flag and provides descriptive error messages:
 
 ```tabscript
-IDENTIFIER := register.pattern& /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
-NUMBER := register.pattern& /[0-9]+/ "number"
-TAG := register.pattern& /[a-z][a-z0-9-]*/ "tag-name"
+IDENTIFIER := p.pattern.. /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
+NUMBER := p.pattern.. /[0-9]+/ "number"
+TAG := p.pattern.. /[a-z][a-z0-9-]*/ "tag-name"
 ```
 
 When a token fails to match, error messages will show the descriptive name (e.g., "expected <identifier>") instead of the raw regex pattern.
@@ -480,42 +473,46 @@ A more complex plugin can add entirely new syntax. Here's a simplified markup pl
 ```tabscript
 tabscript 1.0
 
-import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
+import type {Parser, State, Options} from "tabscript"
 
-export default function|register: Register, opts: PluginOptions, options: Options|
-	funcName := opts.function or "$"
-	TAG := register.pattern& /[a-zA-Z][a-zA-Z0-9-]*/ "tag-name"
+export default function|p: Parser, options: Options|
+	funcName := "UI"
+	TAG := p.pattern.. /[a-zA-Z][a-zA-Z0-9-]*/ "tag-name"
 	
-	register.before& 'parseStatement' |p, s|
-		if !s.read& ':'
-			return false
+	# Save original parseStatement
+	origParseStatement := p.parseStatement.bind(p)
+	
+	p.parseStatement = |s: State|
+		if !s.read.. ':'
+			return origParseStatement(s)
 		
-		s.emit& funcName + '(`'
+		s.emit.. funcName + '(`'
 		
 		# Parse tag name
-		s.accept& TAG
+		s.accept.. TAG
 		
 		# Parse classes (.class)
-		while s.read& '.'
-			s.emit& '.'
-			s.must& s.accept& TAG
+		while s.read.. '.'
+			s.emit.. '.'
+			s.must.. s.accept.. TAG
 		
-		s.emit& '`'
+		s.emit.. '`'
 		
 		# Parse text content
 		snap := s.snapshot()
-		s.emit& ','
+		s.emit.. ','
 		if !p.parseExpression(s)
 			snap.revertOutput()
 		
-		s.emit& ');'
+		s.emit.. ');'
 		return true
 ```
 
-Usage with options:
+Usage:
 
 ```tabscript
-tabscript 1.0 plugin=./markup.tab (function=UI)
+tabscript 1.0
+import plugin "./markup.tab"
 
 :div.container.highlight "Hello world"
 # Transpiles to: UI(`div.container.highlight`, "Hello world");
@@ -530,6 +527,8 @@ tabscript 1.0 plugin=./markup.tab (function=UI)
 3. **Check `options.js`** - If you emit type annotations, check `options.js` and skip them when outputting JavaScript.
 
 4. **Test thoroughly** - Create `.tab` and `.ts` test files to verify your plugin output matches expectations.
+
+5. **Bind original methods** - When saving a reference to an original method, use `.bind(p)` to preserve the correct `this` context.
 
 ## Try It Yourself
 

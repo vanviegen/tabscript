@@ -47,8 +47,8 @@ function assert|val: any|: asserts val
 
 # Strict equality checking by default
 three := Math.random() < 0.5 ? '3' : 3
-assert& three =~ 3 # =~ translates to ==, !~ to != (always true)
-assert& three != 3 # == translates to ===, != to !== (false in half the cases)
+assert.. three =~ 3 # =~ translates to ==, !~ to != (always true)
+assert.. three != 3 # == translates to ===, != to !== (false in half the cases)
 
 n ::= 0
 if n > 3 n++
@@ -65,18 +65,18 @@ if done(n, 2) proceed()
 if done(n, 2)
 	proceed()
 
-if done& n 2
+if done.. n 2
 	proceed()
 
-if (done& n 2) proceed()
+if (done.. n 2) proceed()
 
-if done&
+if done..
 	n
 	2
 ; # the semicolon separates the function call args from the if-body
 	proceed()
-else if (done& n n)
-	rescue& # call without args
+else if (done.. n n)
+	rescue.. # call without args
 else
 	halt()
 
@@ -127,9 +127,9 @@ function sdf|a: any, b?: any|
 	return 123
 
 sdf({x:42})
-sdf& {x:42}
-sdf& '3'
-sdf& 5, 8
+sdf.. {x:42}
+sdf.. '3'
+sdf.. 5, 8
 
 select := |t: 'a' or 'b' or 3| 'x'+t
 select(3)
@@ -143,11 +143,11 @@ rest := |...args: number[]|
 i :: any = 3
 i = i=3, i==4
 
-for x: in arr console.log& x
-for x2: of arr or [] console.log& x2
+for x: in arr console.log.. x
+for x2: of arr or [] console.log.. x2
 
-for i=0 i<10 i++ console.log& i
-for i::=0; i<10; i++; console.log& i
+for i=0 i<10 i++ console.log.. i
+for i::=0; i<10; i++; console.log.. i
 
 abstract class X<T extends Record<number,any>> extends Array<T>
 	arg: number = 123
@@ -167,7 +167,7 @@ XXXX := class name<S, T>
 
 new XXXX<number,string>()
 
-text := `This ${sdf& 2 ('3' as any as number)} ${`works`}`
+text := `This ${sdf.. 2 ('3' as any as number)} ${`works`}`
 
 enum E2
 	A
@@ -208,9 +208,9 @@ date := weirdFunc<number or string>(x)<Something>()
 (3 + 4) < num or x > 2
 
 test := |str: TemplateStringsArray, ...args: any[]|
-	console.log& str.join(", ") args.join(", ")
+	console.log.. str.join(", ") args.join(", ")
 	return |arg: number|
-		console.log& arg
+		console.log.. arg
 
 test`string ${x as number} ${3+4}`
 

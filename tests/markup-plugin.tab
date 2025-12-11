@@ -3,19 +3,21 @@ tabscript 1.0
 # Markup/UI plugin for TabScript.
 # Provides the : syntax for creating UI elements.
 #
-# Usage in header:
-#   tabscript 1.0 plugin=markup.js (ui=UILibrary)
+# Usage:
+#   import plugin "markup-plugin.tab"
+#   # Then define A function before using markup syntax
+#   A := |...args: any[]| ...
 #
 # @module plugins/markup
 
-import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
+import type {Parser, State, Options, PluginOptions} from "tabscript"
 
 # Create the markup plugin parser extensions.
-export default function createMarkupPlugin|register: Register, pluginOptions: PluginOptions, globalOptions: Options|
+export default function createMarkupPlugin|p: Parser, globalOptions: Options, pluginOptions: PluginOptions|
 	# Token patterns specific to markup
-	TAG_LITERAL := register.pattern& /[0-9a-zA-Z_\-]+/ "tag-literal"
-	TAG_LITERAL_INTERPOLATE := register.pattern& /[0-9a-zA-Z_\-]*\$\{/ "tag-literal"
-	STRING := register.pattern& /(['"])(?:(?=(\\?))\2.)*?\1/ "string"
+	TAG_LITERAL := p.pattern.. /[0-9a-zA-Z_\-]+/ "tag-literal"
+	TAG_LITERAL_INTERPOLATE := p.pattern.. /[0-9a-zA-Z_\-]*\$\{/ "tag-literal"
+	STRING := p.pattern.. /(['"])(?:(?=(\\?))\2.)*?\1/ "string"
 
 	funcName := pluginOptions.function or "$"
 
@@ -42,42 +44,42 @@ export default function createMarkupPlugin|register: Register, pluginOptions: Pl
 
 	# Parse markup value (string or interpolated tag literal).
 	# Values can be: literals (div, my-tag), interpolated (`${expr}`), or strings ("foo", 'bar').
-	parseMarkupValue := |p: Parser, s: State|
+	parseMarkupValue := |s: State|
 		# Try literal/interpolated first (most common case)
-		if parseMarkupLiteral& p s false
+		if parseMarkupLiteral.. s false
 			return true
 
 		# Try quoted string - need to wrap in template literal syntax for output
 		snap := s.snapshot()
-		if p.parseBacktickString(s) or s.accept& STRING
+		if p.parseBacktickString(s) or s.accept.. STRING
 			# Flush separator BEFORE emitting the value (insert at correct position)
 			tokens := snap.revertOutput()
-			toMode& s 0
+			toMode.. s 0
 			s.emit(...tokens)
-			toMode& s 1
+			toMode.. s 1
 			return true
 
 		return false
 
-	parseMarkupLiteral := |p: Parser, s: State, tag: boolean|
-		if s.peek& TAG_LITERAL_INTERPOLATE
+	parseMarkupLiteral := |s: State, tag: boolean|
+		if s.peek.. TAG_LITERAL_INTERPOLATE
 			# Make sure we start a new string
 			if !tag
-				toMode& s 0
-			toMode& s 2
-			while s.accept& TAG_LITERAL_INTERPOLATE
-				s.must& p.parseExpression(s)
-				s.must& s.accept& '}'
+				toMode.. s 0
+			toMode.. s 2
+			while s.accept.. TAG_LITERAL_INTERPOLATE
+				s.must.. p.parseExpression(s)
+				s.must.. s.accept.. '}'
 			
-			s.accept& TAG_LITERAL
+			s.accept.. TAG_LITERAL
 
 			if !tag
-				toMode& s 1 # Exit dedicated string
+				toMode.. s 1 # Exit dedicated string
 			return true
 		
-		if s.peek& TAG_LITERAL
-			toMode& s (tag ? 3 : 2)
-			s.must& s.accept& TAG_LITERAL
+		if s.peek.. TAG_LITERAL
+			toMode.. s (tag ? 3 : 2)
+			s.must.. s.accept.. TAG_LITERAL
 			return true
 
 		return false
@@ -85,21 +87,21 @@ export default function createMarkupPlugin|register: Register, pluginOptions: Pl
 
 	# Parse markup syntax: :tagName.class prop=value @handler
 	# Output format: ui(`tagName prop=value`,...)
-	parseMarkup := |p: Parser, s: State|
-		if !s.read& ':'
+	parseMarkup := |s: State|
+		if !s.read.. ':'
 			return false
 
-		s.emit& funcName + "("
+		s.emit.. funcName + "("
 
 		startLine := s.inLine
 		mode = 0
 
 		while s.inLine == startLine
 			# Handle class shorthand: .className
-			if s.read& '.'
-				toMode& s 2
-				s.emit& '.'
-				s.must& parseMarkupValue& p s
+			if s.read.. '.'
+				toMode.. s 2
+				s.emit.. '.'
+				s.must.. parseMarkupValue.. s
 				continue
 
 			# Handle quoted tag name: "custom-element" or `interpolated`
@@ -107,42 +109,49 @@ export default function createMarkupPlugin|register: Register, pluginOptions: Pl
 			if s.accept(STRING) or p.parseBacktickString(s)
 				# Convert string to hash-prefixed format: "foo" -> #foo
 				tokens := stringSnap.revertOutput()
-				toMode& s 2 # string mode
-				s.emit& '#'
-				toMode& s 0 # add the target string as a separate arg
+				toMode.. s 2 # string mode
+				s.emit.. '#'
+				toMode.. s 0 # add the target string as a separate arg
 				s.emit(...tokens)
 				continue
 
 			# Try to parse a literal/interpolated identifier
-			if !parseMarkupLiteral& p s true
+			if !parseMarkupLiteral.. s true
 				break
 
 			# Determine what follows the identifier
 			op := s.read('=') or s.read(':')
 			if op
-				toMode& s 2
-				s.emit& op
-				s.must& parseMarkupValue& p s
+				toMode.. s 2
+				s.emit.. op
+				s.must.. parseMarkupValue.. s
 			else if s.read('~')
-				toMode& s 2
-				s.emit& '='
-				toMode& s 0
+				toMode.. s 2
+				s.emit.. '='
+				toMode.. s 0
 				p.parseExpression(s)
-				toMode& s 1
+				toMode.. s 1
 			# else: it's a tag name
 
 		# Optional child block
 		saved := s.snapshot()
 		savedMode := mode
-		toMode& s 0 # Insert a comma if needed before the function
-		if !s.parseGroup& {jsOpen: 'function(){', jsClose: '}', next: ';', jsNext: null, allowImplicit: true} || s.recoverErrors& || p.parseStatement(s)
+		toMode.. s 0 # Insert a comma if needed before the function
+		if !s.parseGroup.. {jsOpen: 'function(){', jsClose: '}', next: ';', jsNext: null, allowImplicit: true} || s.recoverErrors.. || p.parseStatement(s)
 			saved.revertOutput() # No child block found, revert output to remove comma
 			mode = savedMode
 			
-		toMode& s 1 # End any open string
-		s.emit& false, ")"
+		toMode.. s 1 # End any open string
+		s.emit.. false, ")"
 
 		return true
 
-	# Register the markup parser to run right after type declarations are attempted.
-	register.after& 'parseTypeDecl' parseMarkup
+	# Keep reference to original parseTypeDecl
+	origParseTypeDecl := p.parseTypeDecl.bind(p)
+
+	# Replace parseTypeDecl to run markup parser after type declarations fail
+	p.parseTypeDecl = |s: State|
+		result := origParseTypeDecl(s)
+		if result
+			return result
+		return parseMarkup(s)

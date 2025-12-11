@@ -1,4 +1,5 @@
-tabscript 1.0 plugin=markup-plugin.tab (function=A)
+tabscript 1.0
+import plugin "markup-plugin.tab" {function: "A"}
 A := |...args: any[]| 0
 
 # Test basic element
@@ -36,7 +37,7 @@ variable := "world"
 
 # Test empty tag with block
 :
-	console.log& "do reactive things"
+	console.log.. "do reactive things"
 
 # Test property-only class
 :.some-class
@@ -132,8 +133,8 @@ something := true
 	:data-value = ${"x " + "y"}
 	:data-value2 ~ "x " + "y"
 	:click~ ||
-		console.log& "Clicked"
+		console.log.. "Clicked"
 	:destroy~ ||
-		console.log& "Destroyed"
+		console.log.. "Destroyed"
 	x := 42
 	:value ~ x
