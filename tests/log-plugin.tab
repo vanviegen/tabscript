@@ -16,7 +16,7 @@ import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
 
 # Create the logging plugin parser extensions.
 export default function createLogPlugin|register: Register, pluginOptions: PluginOptions, globalOptions: Options|
-	IDENTIFIER := /[a-zA-Z_$][0-9a-zA-Z_$]*/y
+	IDENTIFIER := register.pattern& /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
 
 	# Parse @log prefix before variable declarations
 	parseLogDecl := |p: Parser, s: State|

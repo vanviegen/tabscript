@@ -42,13 +42,27 @@
 
 import type { Options } from './tabscript.js';
 
-function descr(regexp: RegExp, name: string): RegExp {
-    regexp.toString = () => '<' + name + '>';
-    return regexp;
+/**
+ * Creates a token matcher regex with a descriptive name for error messages.
+ * Automatically adds the sticky (/y) flag if not present.
+ * 
+ * This is the recommended way to create regex patterns for use with
+ * `s.read()`, `s.accept()`, `s.peek()`, and related methods in plugins.
+ * 
+ * @param regexp - The regular expression pattern to match tokens
+ * @param name - A descriptive name shown in error messages (e.g., "identifier", "number")
+ * @returns A new RegExp with the sticky flag and custom toString()
+ */
+export function pattern(regexp: RegExp, name: string): RegExp {
+    // Clone the regex with the sticky flag added
+    const flags = regexp.flags.includes('y') ? regexp.flags : regexp.flags + 'y';
+    const result = new RegExp(regexp.source, flags);
+    result.toString = () => '<' + name + '>';
+    return result;
 }
 
 // Atoms - these are used by read/peek/accept
-const WHITESPACE = descr(/[ \t\r]*(?:#.*)?/y, "whitespace");
+const WHITESPACE = pattern(/[ \t\r]*(?:#.*)?/, "whitespace");
 const ALPHA_NUM = /^[a-zA-Z0-9]+$/;
 const START_WORD_CHAR = /^[a-zA-Z0-9_$]/;
 const IS_WORD_CHAR = /^[a-zA-Z0-9_$]$/;
@@ -189,7 +203,7 @@ export class State {
                 )) result = what;
             } else if (what instanceof RegExp) {
                 if (!what.sticky) {
-                    throw new Error(`RegExp argument to read() must have the /y (sticky) flag: ${what}`);
+                    throw new Error(`Please use pattern on your RegEx: ${what}`);
                 }
                 what.lastIndex = this.inPos;
                 const match = what.exec(this.inData);

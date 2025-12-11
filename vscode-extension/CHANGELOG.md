@@ -2,7 +2,7 @@
 
 All notable changes to the "tabscript" extension will be documented in this file.
 
-## [0.2.0] - 2025-12-09
+## [0.2.0] - 2025-12-11
 
 ### Added
 - Plugin support for custom syntax extensions

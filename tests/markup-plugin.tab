@@ -10,17 +10,13 @@ tabscript 1.0
 
 import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
 
-descr := |regexp: RegExp, name: string|
-	regexp.toString = || '<' + name + '>'
-	return regexp
-
-# Token patterns specific to markup
-TAG_LITERAL := descr& /[0-9a-zA-Z_\-]+/y "tag-literal"
-TAG_LITERAL_INTERPOLATE := descr& /[0-9a-zA-Z_\-]*\$\{/y "tag-literal"
-STRING := descr& /(['"])(?:(?=(\\?))\2.)*?\1/y "string"
-
 # Create the markup plugin parser extensions.
 export default function createMarkupPlugin|register: Register, pluginOptions: PluginOptions, globalOptions: Options|
+	# Token patterns specific to markup
+	TAG_LITERAL := register.pattern& /[0-9a-zA-Z_\-]+/ "tag-literal"
+	TAG_LITERAL_INTERPOLATE := register.pattern& /[0-9a-zA-Z_\-]*\$\{/ "tag-literal"
+	STRING := register.pattern& /(['"])(?:(?=(\\?))\2.)*?\1/ "string"
+
 	funcName := pluginOptions.function or "$"
 
 	mode ::= 0 # 0 ready for arg, 1 comma needed, 2 within command string

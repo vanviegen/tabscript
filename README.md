@@ -4,7 +4,7 @@ TabScript is an indentation-based syntax for TypeScript, designed for building c
 
 What makes TabScript special is its **plugin system**: you can extend the language with custom syntax tailored to your domain, while still leveraging TypeScript's complete type checking and IDE (VSCode only for now) support.
 
-**[📚 Read the full documentation and interactive tutorial](https://tabscript.vanviegen.net/)**
+**[📚 Read the full documentation and interactive tutorial](https://tabscript.vanviegen.net/TabScript_Tutorial/)**
 
 ## Quick Example
 

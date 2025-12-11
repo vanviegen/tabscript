@@ -13,32 +13,30 @@ The transpiler is **lexer-less and single-pass** — it reads input and emits ou
 Let's start with a complete example that showcases TabScript's clean syntax:
 
 ```tabscript
-tabscript 1.0 # Declare TabScript version
+tabscript 1.0
 
 interface Task
 	title: string
 	status: "done" or "pending"
 	priority: number
 
-# := for const declaration, || for function definition parameters
+# Arrow function with := (const)
 filterTasks := |tasks: Task[], status: "done" or "pending"|
-	# Call the filter method using & syntax, so avoid parentheses
-	# Use 'and'/'or' instead of &&/||
 	tasks.filter& |t| t.status == status and t.priority > 0
 
-# Single expression functions are super clean
-getHighPriority := |tasks: Task[]| tasks.filter& |t| t.priority >= 8
+# Single expression functions
+getHighPriority := |tasks: Task[]|
+	tasks.filter& |t| t.priority >= 8
 
-# Functions with indented blocks - no braces needed!
+# Named function
 function printTaskStats|tasks: Task[]|
 	completed := filterTasks& tasks "done"
 	pending := filterTasks& tasks "pending"
 
-	# The colon here causes `task` to be declared as a constant in the loop
+	# for-of with : declares a const
 	for task: of getHighPriority(pending)
 		console.log("HIGH PRIORITY:", task.title)
 
-	# String interpolation and readable conditionals
 	if completed.length > 0
 		console.log(`Completed ${completed.length} tasks!`)
 ```
@@ -58,11 +56,11 @@ Variable declarations use colons: a single `:` for `const` and a double `::` for
 ```tabscript
 tabscript 1.0
 
-# One colon = const
+# One colon means const
 x : number = 3
 z := 42
 
-# Two colons = let
+# Two colons means let
 y :: string = "hello"
 w ::= 42
 
@@ -77,6 +75,8 @@ value : string or undefined
 
 Functions use `||` to wrap parameters instead of `()`. For arrow functions, you can omit braces when returning an expression.
 
+Note that we're leaving out the required 'tabscript 1.0' header in the following examples for brevity.
+
 ```tabscript
 # Arrow functions
 add := |a, b| a + b
@@ -86,7 +86,7 @@ double := |x: number| x * 2
 fetch := async |url| await loadData(url)
 
 # Named function with single expression
-function greet|name| return "Hi " + name
+function greet|name| `Hi ${name}`
 
 # Named function with block body
 function calculate|a: number, b: number|
@@ -114,7 +114,7 @@ result := func&
 	b
 
 # Passing in an anonymous function as argument
-processData options |item|
+processData& options |item|
 	item.value *= 2
 ```
 
@@ -167,6 +167,10 @@ try
 	riskyOperation()
 catch error
 	console.log(error)
+
+# Or without the catch, and on a single line
+try riskyOperation()
+
 ```
 
 ## Operators
@@ -357,7 +361,7 @@ tabscript 1.0
 import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
 
 export default function|register: Register, pluginOptions: PluginOptions, options: Options|
-	IDENTIFIER := /[a-zA-Z_$][0-9a-zA-Z_$]*/y
+	IDENTIFIER := register.pattern& /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
 
 	register.before& 'parseStatement' |p: Parser, s: State|
 		if !s.read& '@log'
@@ -434,6 +438,18 @@ register.replace& 'parseExpression' |orig, p, s|
 	return orig(s)
 ```
 
+#### Token Matchers
+
+Use `register.pattern(regex, name)` to create regex patterns for token matching. It automatically adds the sticky (`/y`) flag and provides descriptive error messages:
+
+```tabscript
+IDENTIFIER := register.pattern& /[a-zA-Z_$][0-9a-zA-Z_$]*/ "identifier"
+NUMBER := register.pattern& /[0-9]+/ "number"
+TAG := register.pattern& /[a-z][a-z0-9-]*/ "tag-name"
+```
+
+When a token fails to match, error messages will show the descriptive name (e.g., "expected <identifier>") instead of the raw regex pattern.
+
 #### State API
 
 The `State` object (`s`) provides methods for reading input and emitting output:
@@ -468,7 +484,7 @@ import type {Parser, State, Register, Options, PluginOptions} from "tabscript"
 
 export default function|register: Register, opts: PluginOptions, options: Options|
 	funcName := opts.function or "$"
-	TAG := /[a-zA-Z][a-zA-Z0-9-]*/y
+	TAG := register.pattern& /[a-zA-Z][a-zA-Z0-9-]*/ "tag-name"
 	
 	register.before& 'parseStatement' |p, s|
 		if !s.read& ':'

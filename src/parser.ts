@@ -5,7 +5,7 @@
  * @module parser
  */
 
-import { State, ParseGroupOpts, ParseError } from './state.js';
+import { State, ParseGroupOpts, ParseError, pattern } from './state.js';
 import type { Options, PluginOptions, PluginModule } from './tabscript.js';
 
 /**
@@ -50,6 +50,21 @@ export class Register {
     private _replacements: Map<string, PluginMethod> = new Map();
     private _befores: Map<string, SimplePluginMethod[]> = new Map();
     private _afters: Map<string, SimplePluginMethod[]> = new Map();
+
+    /**
+     * Creates a token matcher regex with a descriptive name for error messages.
+     * Automatically adds the sticky (/y) flag if not present.
+     * 
+     * This is the recommended way to create regex patterns for use with
+     * `s.read()`, `s.accept()`, `s.peek()`, and related methods in plugins.
+     * 
+     * @param regexp - The regular expression pattern to match tokens
+     * @param name - A descriptive name shown in error messages (e.g., "identifier", "number")
+     * @returns A new RegExp with the sticky flag and custom toString()
+     */
+    pattern(regexp: RegExp, name: string): RegExp {
+        return pattern(regexp, name);
+    }
 
     private validateMethodName(methodName: string, action: string): void {
         if (!methodName.startsWith('parse')) {
@@ -228,6 +243,10 @@ const OPERATOR = descr(/instanceof\b|in\b|or\b|and\b|[!=]~|[+\-*\/!=<>]=|[+\-*\/
 const WITHIN_BACKTICK_STRING = descr(/[\s\S]*?(\${|`)/y, "`string`");
 const EXPRESSION_PREFIX = descr(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b|new\b/y, "unary-op");
 const REGEXP = descr(/\/(\\.|[^\/])+\/[gimsuyd]*/y, "regexp");
+const INTEGER = descr(/\d+/y, "integer");
+const PATH = descr(/[^\s()]+/y, "path");
+        
+
 
 const REPLACE_OPERATORS: Record<string, string> = {
     "or": "||",
@@ -623,9 +642,6 @@ export class Parser {
      * Header format: tabscript X.Y [plugin=path (options...)] ...
      */
     parseHeader(s: State): boolean {
-        const INTEGER = /\d+/y;
-        const PATH = /[^\s()]+/y;
-        
         // Parse: tabscript X.Y
         s.must(s.read('tabscript'));
         const major = parseInt(s.must(s.read(INTEGER)));
@@ -896,14 +912,34 @@ export class Parser {
 
     parseTry(s: State): boolean {
         if (!s.accept('try')) return false;
-        s.must(this.parseBlock(s) || this.parseStatement(s));
+        if (!this.parseBlock(s)) {
+            s.emit('{')
+            s.must(this.parseStatement(s));
+            s.emit('}');
+        }
+        let handled = false;
         if (s.accept('catch')) {
             if (s.accept(IDENTIFIER)) {
                 if (s.acceptType(':')) s.must(this.parseType(s));
             }
-            s.must(this.parseBlock(s) || this.parseStatement(s));
+            if (!this.parseBlock(s)) {
+                s.emit('{')
+                s.must(this.parseStatement(s));
+                s.emit('}');
+            }
+            handled = true;
         }
-        if (s.accept('finally')) s.must(this.parseBlock(s) || this.parseStatement(s));
+        if (s.accept('finally')) {
+            if (!this.parseBlock(s)) {
+                s.emit('{')
+                s.must(this.parseStatement(s));
+                s.emit('}');
+            }
+            handled = true;
+        }
+        if (!handled) {
+            s.emit('catch{}');
+        }
         return true;
     }
 
