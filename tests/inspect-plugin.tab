@@ -1,0 +1,13 @@
+tabscript 1.0
+export default function|p, options|
+	orig := p.parseClass.bind(p)
+	p.parseClass = |s|
+		if !s.read.. '@', '('
+			return orig(s)
+		s.emit.. 'mylog('
+		snap := s.snapshot()
+		s.must.. p.parseExpression(s)
+		source := JSON.stringify.. snap.getSource()
+		s.emit.. ',' + source
+		s.must.. s.accept.. ')'
+		return true

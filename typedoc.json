@@ -18,7 +18,7 @@
     "theme": "default",
     "navigationLinks": {
         "What's this?": "https://tabscript.vanviegen.net/",
-        "Tutorial": "https://tabscript.vanviegen.net/Tutorial/",
+        "Tutorial": "https://tabscript.vanviegen.net/TabScript_Tutorial/",
         "GitHub": "https://github.com/vanviegen/tabscript"
     },
     "hideGenerator": true,
@@ -28,8 +28,7 @@
         "notDocumented": false,
         "notExported": false
     },
-    "treatWarningsAsErrors": false,
+    "treatWarningsAsErrors": true,
     "out": "./dist-docs",
-    "customJs": "docs/custom.js",
-    "customCss": "docs/custom.css"
+    "customJs": "docs/custom.js"
 }

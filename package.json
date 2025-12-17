@@ -27,7 +27,7 @@
         "build": "rm -rf dist dist-min ; tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts && chmod a+x dist/cli.js && mkdir -p dist-min && for f in dist/*.js; do terser --module --mangle module --keep-fnames --source-map -o dist-min/$(basename $f) -- $f; done && cp dist/*.d.ts dist-min",
         "build-extension": "cd vscode-extension && tsc -p .",
         "build-all": "npm run build && npm run build-extension",
-        "build-docs": "npm run build && npx esbuild docs/custom.src.js --bundle --format=esm --minify --outfile=docs/custom.js && typedoc && rm -rf dist-docs/assets/tabscript && cp -r dist dist-docs/assets/tabscript && cp vscode-extension/syntaxes/tabscript.tmLanguage.json dist-docs/assets/tabscript/",
+        "build-docs": "npm run build && npx esbuild docs/custom.src.js --bundle --format=esm --minify --outfile=docs/custom.js && typedoc && cp docs/theme/style.css docs/theme/highlight.css dist-docs/assets/ && rm -rf dist-docs/assets/tabscript && cp -r dist dist-docs/assets/tabscript && cp vscode-extension/syntaxes/tabscript.tmLanguage.json dist-docs/assets/tabscript/",
         "deploy-docs": "npm run build-docs && rsync -avz --delete dist-docs/ frank@tabscript.vanviegen.net:webcentral-projects/tabscript.vanviegen.net/public/",
         "watch": "tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts --watch",
         "watch-extension": "cd vscode-extension && tsc -p . --watch",
@@ -73,8 +73,12 @@
         "shiki": "^3.19.0",
         "terser": "^5.39.0",
         "typedoc": "^0.28.2",
+        "typedoc-github-theme": "^0.3.1",
         "typescript": "^5.8.3"
     },
     "type": "module",
-    "types": "dist-min/tabscript.d.ts"
+    "types": "dist-min/tabscript.d.ts",
+    "dependencies": {
+        "@shikijs/monaco": "^3.20.0"
+    }
 }

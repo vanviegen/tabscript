@@ -86,18 +86,33 @@ tabscript input.tab --whitespace pretty --output output.ts
 
 ## Plugin System
 
-TabScript's plugin system lets you extend the language with custom syntax. For example, you could add an `@log` decorator that automatically logs function calls:
+TabScript's plugin system lets you extend the language with custom syntax. Here's a plugin that allows programs to prefix expression with @ in order to wrap them in a log function together with the expression source code:
+
+```tabscript
+# @file: inspect-plugin.tab
+tabscript 1.0
+export default function|p, options|
+	orig := p.parseClass.bind(p)
+	p.parseClass = |s|
+		if !s.read.. '@', '('
+			return orig(s)
+		s.emit.. 'mylog('
+		snap := s.snapshot()
+		s.must.. p.parseExpression(s)
+		source := JSON.stringify.. snap.getSource()
+		s.emit.. ',' + source
+		s.must.. s.accept.. ')'
+		return true
+```
 
 ```tabscript
 tabscript 1.0
-import plugin "./log-plugin.tab"
-
-@log add := |a: number, b: number| a + b
-
-result := add(1, 2)  # Logs: "add" 1 2
+import plugin "./inspect-plugin.tab"
+x := 3
+y := @(x * 2) + @(Math.sqrt(16))
 ```
 
-See the [full documentation](https://tabscript.vanviegen.net/TabScript_Tutorial/) for details on writing plugins, including the implementation of the `log-plugin.tab` used above.
+See the [full documentation](https://tabscript.vanviegen.net/TabScript_Tutorial/) for details on writing plugins.
 
 As TabScript uses a lexer-less transpiler architecture and plugins can hook into any part of the parser, just about any syntax extension you can think of is possible. However, as the transpiler is single-pass and doesn't construct an AST, it is best suited for superficial transformations that map cleanly to TypeScript constructs.
 

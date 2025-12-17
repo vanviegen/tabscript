@@ -118,6 +118,8 @@ export interface Snapshot {
     revertOutput(): (string|number)[];
     /** Check if any output has been emitted since the snapshot */
     hasOutput(): boolean;
+    /** Get all source code that has been read since the snapshot */
+    getSource(): string;
 }
 
 
@@ -380,6 +382,9 @@ export class State {
             },
             hasOutput: () => {
                 return this.outTokens.slice(outLength).some(t => typeof t === 'string');
+            },
+            getSource: () => {
+                return this.inData.slice(inState.inPos, this.inPos);
             }
         };
     }

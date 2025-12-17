@@ -1,0 +1,11 @@
+/*
+ * TabScript Dark Theme - Syntax Highlighting
+ * Dark mode only - single code background color
+ * Note: Shiki uses inline styles for syntax colors from github-dark theme
+ */
+
+:root {
+    --code-background: #161b22;
+}
+
+pre, code { background: var(--code-background); }

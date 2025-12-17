@@ -335,6 +335,11 @@ The transpiler is **lexer-less and single-pass** — it reads input and emits ou
 Import plugins using the `import plugin` statement:
 
 ```tabscript
+# @file: my-plugin.tab
+export default function||;
+```
+
+```tabscript
 tabscript 1.0
 import plugin "./my-plugin.tab"
 ```
@@ -342,8 +347,14 @@ import plugin "./my-plugin.tab"
 You can pass options to plugins using an object literal:
 
 ```tabscript
+# @file: options-demo.tab
+export default function|parser, options, pluginOptions|
+	console.log(pluginOptions)
+```
+
+```tabscript
 tabscript 1.0
-import plugin "./markup.tab" {function: "UI", debug: true}
+import plugin "./options-demo.tab" {function: "UI", debug: true}
 ```
 
 Plugins can be loaded at any point in the file and take effect immediately. They can be written in TabScript (`.tab`) or JavaScript (`.js`).
@@ -357,6 +368,7 @@ Plugins receive the Parser instance and can directly modify its `parse*` methods
 Here's a plugin that adds an `@log` decorator for automatic function call logging:
 
 ```tabscript
+# @file: log-plugin.tab
 tabscript 1.0
 
 import type {Parser, State, Options} from "tabscript"
@@ -471,6 +483,7 @@ The `State` object (`s`) provides methods for reading input and emitting output:
 A more complex plugin can add entirely new syntax. Here's a simplified markup plugin that transforms `:div.class "text"` into function calls:
 
 ```tabscript
+# @file: markup.tab
 tabscript 1.0
 
 import type {Parser, State, Options} from "tabscript"

@@ -5,8 +5,9 @@
 // Static imports for Shiki (bundled at build time)
 import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
+import { createOnigurumaEngine } from 'shiki/engine/oniguruma';
+import { shikiToMonaco } from '@shikijs/monaco';
 import githubDark from '@shikijs/themes/github-dark';
-import githubLight from '@shikijs/themes/github-light';
 import langTypescript from '@shikijs/langs/typescript';
 import langJavascript from '@shikijs/langs/javascript';
 import langBash from '@shikijs/langs/bash';
@@ -18,7 +19,77 @@ import langCss from '@shikijs/langs/css';
 // Static import for tabscript transpiler
 import { tabscript } from 'tabscript';
 
-let shikiHighlighter = null;
+// Virtual file cache for plugin examples
+// Maps filename -> TabScript source code
+const virtualFileCache = new Map();
+
+// Check if code has a @file directive and extract the filename
+// Returns { filename, code } where code has the directive stripped
+function extractFileDirective(code) {
+    const match = code.match(/^#\s*@file:\s*([^\s]+)\s*\n/);
+    if (match) {
+        return {
+            filename: match[1],
+            code: code.slice(match[0].length)
+        };
+    }
+    return { filename: null, code };
+}
+
+// Register a file in the virtual cache
+function registerVirtualFile(filename, code) {
+    virtualFileCache.set(filename, code);
+    // Also register with ./ prefix for relative imports
+    if (!filename.startsWith('./')) {
+        virtualFileCache.set('./' + filename, code);
+    }
+}
+
+// Load a plugin from the virtual file cache
+function loadPluginFromCache(path) {
+    // Normalize the path
+    const normalizedPath = path.startsWith('./') ? path : './' + path;
+    
+    // Check both with and without ./ prefix
+    let source = virtualFileCache.get(path) || virtualFileCache.get(normalizedPath);
+    
+    if (!source) {
+        throw new Error(`Plugin file not found in cache: ${path}. Define it first with # @file: ${path}`);
+    }
+    
+    // Ensure header
+    if (!source.trim().startsWith('tabscript ')) {
+        source = 'tabscript 1.0\n\n' + source;
+    }
+    
+    // Transpile the plugin to JavaScript
+    const result = tabscript(source.replace(/    /g, '\t'), {
+        js: true,
+        recover: false,
+        whitespace: 'pretty',
+        loadPlugin: loadPluginFromCache // Allow nested plugin loading
+    });
+    
+    if (result.errors && result.errors.length > 0) {
+        throw new Error(`Plugin transpilation error: ${result.errors[0].message || result.errors[0]}`);
+    }
+    
+    // Evaluate the transpiled JavaScript as a module
+    // We need to handle the export default and imports
+    let jsCode = result.code;
+    
+    // Strip import statements (they reference types that don't exist at runtime)
+    jsCode = jsCode.replace(/^import\s+.*?;\s*$/gm, '');
+    
+    // Convert "export default function" to a function expression we can capture
+    jsCode = jsCode.replace(/export\s+default\s+/, 'return ');
+    
+    // Create the module function
+    const moduleFunc = new Function(jsCode);
+    const defaultExport = moduleFunc();
+    
+    return { default: defaultExport };
+}
 let shikiHighlighterPromise = null;
 let tabscriptGrammar = null;
 
@@ -68,7 +139,7 @@ function loadShikiHighlighter() {
 
         // Create highlighter with pre-imported themes and languages
         const highlighter = await createHighlighterCore({
-            themes: [githubDark, githubLight],
+            themes: [githubDark],
             langs: [
                 langTypescript,
                 langJavascript,
@@ -89,12 +160,9 @@ function loadShikiHighlighter() {
     return shikiHighlighterPromise;
 }
 
-// Determine current theme
+// Dark mode only - always use github-dark theme
 function getCurrentTheme() {
-    const isDark = document.documentElement.dataset.theme === 'dark' ||
-        (document.documentElement.dataset.theme === 'os' &&
-         window.matchMedia('(prefers-color-scheme: dark)').matches);
-    return isDark ? 'github-dark' : 'github-light';
+    return 'github-dark';
 }
 
 // Highlight code using Shiki
@@ -151,17 +219,24 @@ function ensureHeader(code) {
 
 // Transpile TabScript code
 function transpileCode(code, options = {}) {
+    // Check for @file directive and register in cache
+    const { filename, code: codeWithoutDirective } = extractFileDirective(code);
+    if (filename) {
+        registerVirtualFile(filename, codeWithoutDirective);
+    }
+    
     // Ensure header exists. Also, TypeDoc comment examples use 4-space indents.
-    const codeWithHeader = ensureHeader(code).replace(/    /g, '\t');
+    const codeWithHeader = ensureHeader(codeWithoutDirective).replace(/    /g, '\t');
 
     try {
         const result = tabscript(codeWithHeader, {
             js: options.js || false,
             recover: true,
-            whitespace: 'pretty'
+            whitespace: 'preserve',
+            loadPlugin: loadPluginFromCache
         });
         let output = result.code;
-        if (code !== codeWithHeader) {
+        if (codeWithoutDirective !== codeWithHeader) {
             output = output.replace(/\n\n/, ''); // Strip the two empty lines
         }
 
@@ -192,19 +267,29 @@ function createTranspilerWidget(codeE, initialCode) {
 
     const inputHeaderE = document.createElement('div');
     inputHeaderE.className = 'transpiler-header';
-    inputHeaderE.textContent = 'TabScript input';
+    
+    const inputTitleE = document.createElement('span');
+    inputTitleE.className = 'transpiler-title';
+    inputTitleE.textContent = 'TabScript input';
+    inputHeaderE.appendChild(inputTitleE);
+
+    // Buttons container (for right-alignment)
+    const inputButtonsE = document.createElement('span');
+    inputButtonsE.className = 'transpiler-buttons';
 
     // Edit button in input header
     const editButtonE = document.createElement('button');
     editButtonE.className = 'transpiler-button';
     editButtonE.textContent = 'Edit';
-    inputHeaderE.appendChild(editButtonE);
+    inputButtonsE.appendChild(editButtonE);
 
     // Copy button in input header
     const copyButtonE = document.createElement('button');
     copyButtonE.className = 'transpiler-button';
     copyButtonE.textContent = 'Copy';
-    inputHeaderE.appendChild(copyButtonE);
+    inputButtonsE.appendChild(copyButtonE);
+    
+    inputHeaderE.appendChild(inputButtonsE);
 
     const inputContentE = document.createElement('div');
     inputContentE.className = 'transpiler-content';
@@ -222,14 +307,14 @@ function createTranspilerWidget(codeE, initialCode) {
     outputPaneE.className = 'transpiler-pane';
 
     // Output tabs
-    const outputTabsE = document.createElement('ul');
+    const outputTabsE = document.createElement('div');
     outputTabsE.className = 'transpiler-tabs';
 
-    const tsTabE = document.createElement('li');
+    const tsTabE = document.createElement('button');
     tsTabE.className = 'transpiler-tab active';
     tsTabE.textContent = 'TypeScript';
 
-    const jsTabE = document.createElement('li');
+    const jsTabE = document.createElement('button');
     jsTabE.className = 'transpiler-tab';
     jsTabE.textContent = 'JavaScript';
 
@@ -394,7 +479,54 @@ function createTranspilerWidget(codeE, initialCode) {
     return container;
 }
 
-// Load Monaco editor with Shiki highlighting (dynamically imported on demand)
+// Load Monaco editor with Shiki-based highlighting (dynamically imported on demand)
+let monacoHighlighter = null;
+let monacoHighlighterPromise = null;
+
+// Create a modified version of github-dark with our custom background color
+const githubDarkCustom = {
+    ...githubDark,
+    colors: {
+        ...githubDark.colors,
+        'editor.background': '#161b22',
+        'editor.lineHighlightBackground': '#161b22',
+    }
+};
+
+// Load the Monaco-specific highlighter (uses Oniguruma for full compatibility with shikiToMonaco)
+async function loadMonacoHighlighter() {
+    if (monacoHighlighterPromise) return monacoHighlighterPromise;
+    
+    monacoHighlighterPromise = (async () => {
+        // Load the TabScript grammar
+        const grammar = await loadTabScriptGrammar();
+        if (!grammar) {
+            console.error('Could not load TabScript grammar for Monaco');
+            return null;
+        }
+        
+        // Create the TabScript language definition
+        const tabscriptLang = {
+            ...grammar,
+            name: 'tabscript',
+            aliases: ['tab']
+        };
+        
+        // Create highlighter with Oniguruma engine (required for shikiToMonaco)
+        // Use our custom theme with modified background color
+        const highlighter = await createHighlighterCore({
+            themes: [githubDarkCustom],
+            langs: [tabscriptLang],
+            engine: createOnigurumaEngine(import('shiki/wasm'))
+        });
+        
+        monacoHighlighter = highlighter;
+        return highlighter;
+    })();
+    
+    return monacoHighlighterPromise;
+}
+
 async function loadEditor(containerE, language, code, onChange) {
     // Load Monaco from CDN
     if (!window.monaco) {
@@ -411,29 +543,21 @@ async function loadEditor(containerE, language, code, onChange) {
         });
     }
 
-    // Load shiki-monaco integration dynamically
-    const { shikiToMonaco } = await import('https://esm.sh/@shikijs/monaco@3');
-    
-    // Get the already-loaded Shiki highlighter
-    const highlighter = await loadShikiHighlighter();
-
-    // Register TabScript language with Monaco
-    monaco.languages.register({ id: 'tabscript' });
-    monaco.languages.register({ id: 'typescript' });
-    monaco.languages.register({ id: 'javascript' });
-
-    // Use Shiki for Monaco syntax highlighting
+    // Load the Monaco highlighter and set up shikiToMonaco
+    const highlighter = await loadMonacoHighlighter();
     if (highlighter) {
+        // Register TabScript language
+        monaco.languages.register({ id: 'tabscript' });
+        
+        // Use shikiToMonaco to set up syntax highlighting and theming
         shikiToMonaco(highlighter, monaco);
     }
-
-    const theme = getCurrentTheme();
 
     // Create editor
     const editor = monaco.editor.create(containerE, {
         value: code,
         language: 'tabscript',
-        theme: theme,
+        theme: highlighter ? 'github-dark' : 'vs-dark',
         minimap: {
             enabled: false
         },
@@ -542,6 +666,9 @@ function isTabScriptCodeBlock(lang) {
 
 // Process all code blocks on page load
 addEventListener('DOMContentLoaded', async () => {
+    // Force "On This Page" section to be always expanded
+    document.querySelectorAll('.page-menu > details').forEach(d => d.open = true);
+    
     // Find all code blocks
     const codeBlocks = document.querySelectorAll('pre > code');
     
