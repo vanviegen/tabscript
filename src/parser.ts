@@ -487,6 +487,7 @@ export class Parser {
         }
         
         if (snap.hasOutput()) s.emit(';'); // Could be false when only type info was emitted
+        s.clearTargetPos();
         return true;
     }
 
@@ -698,6 +699,7 @@ export class Parser {
             s.emit('{')
             s.must(this.parseStatement(s));
             s.emit('}');
+            s.readNewline(); // optional
         }
         let handled = false;
         if (s.accept('catch')) {
@@ -708,6 +710,7 @@ export class Parser {
                 s.emit('{')
                 s.must(this.parseStatement(s));
                 s.emit('}');
+                s.readNewline(); // optional
             }
             handled = true;
         }
@@ -716,6 +719,7 @@ export class Parser {
                 s.emit('{')
                 s.must(this.parseStatement(s));
                 s.emit('}');
+                s.readNewline(); // optional
             }
             handled = true;
         }

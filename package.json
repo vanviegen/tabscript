@@ -32,12 +32,13 @@
         "watch": "tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts --watch",
         "watch-extension": "cd vscode-extension && tsc -p . --watch",
         "package-extension": "npm run build-all && cd vscode-extension && vsce package",
-        "test": "npm run test-ts && npm run test-js && npm run test-er && npm run test-markup && npm run test-log && echo OK",
+        "test": "npm run test-ts && npm run test-js && npm run test-er && npm run test-markup && npm run test-log && npm run test-inspect && echo OK",
         "test-ts": "./dist/cli.js tests/test.tab --output /dev/stdout | diff -u tests/test.ts -",
         "test-js": "./dist/cli.js tests/test.tab --js --output /dev/stdout | diff -u tests/test.js -",
         "test-er": "./dist/cli.js tests/error.tab --recover --output /dev/stdout 2> /dev/null | diff -u tests/error.ts -",
         "test-markup": "./dist/cli.js tests/markup.tab --output /dev/stdout | diff -u tests/markup.ts -",
         "test-log": "./dist/cli.js tests/log.tab --output /dev/stdout | diff -u tests/log.ts -",
+        "test-inspect": "./dist/cli.js tests/inspect.tab --output /dev/stdout | diff -u tests/inspect.ts -",
         "prepack": "npm run build && npm run test"
     },
     "repository": {

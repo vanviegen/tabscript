@@ -105,11 +105,11 @@ const sto={
 
 const str    = "test";
 
-																																					let arr;
 
 
 
 
+let arr;
 const sa              = [3, "test"];
 
 arr?.[1];
@@ -221,3 +221,12 @@ test`string`(x);
 const result=x^      num &        42 |       ~        123 <<          2;
 
 const isSet=x!=null;
+
+
+
+
+try{3/0;}catch{}
+
+try{3/0;}
+catch e{console.log(  e);}
+finally{console.log(  "done");}
