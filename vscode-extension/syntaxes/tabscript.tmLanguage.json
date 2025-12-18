@@ -4,12 +4,11 @@
   "scopeName": "source.tabscript",
   "patterns": [
     { "include": "#comments" },
-    { "include": "#ui-tags" },
-    { "include": "#keywords" },
     { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#functions" },
     { "include": "#numbers" },
     { "include": "#operators" },
-    { "include": "#functions" },
     { "include": "#types" },
     { "include": "#variables" },
     { "include": "#constants" }
@@ -27,7 +26,7 @@
       "patterns": [
         {
           "name": "keyword.control.tabscript",
-          "match": "\\b(if|else|switch|case|for|while|do|break|continue|return|throw|try|catch|finally|yield|await)\\b"
+          "match": "\\b(if|else|switch|case|for|while|do|break|continue|return|throw|try|catch|finally|yield|await|public|private|protected)\\b"
         },
         {
           "name": "keyword.control.export.tabscript",
@@ -43,11 +42,11 @@
         },
         {
           "name": "storage.modifier.tabscript",
-          "match": "\\b(public|private|protected|static|readonly|get|set|new|extends|implements)\\b"
+          "match": "\\b(static|readonly|get|set|new|extends|implements)\\b"
         },
         {
           "name": "keyword.other.tabscript",
-          "match": "\\b(this|super|typeof|instanceof|in|of|void|delete)\\b"
+          "match": "\\b(super|typeof|instanceof|in|of|void|delete)\\b"
         },
         {
           "name": "constant.language.tabscript",
@@ -218,10 +217,11 @@
         },
         {
           "name": "meta.arrow-function.tabscript",
-          "begin": "(\\|)",
+          "begin": "(?:([a-zA-Z_$][a-zA-Z0-9_$]*) *)?(\\|)",
           "end": "(\\|)",
           "beginCaptures": {
-            "1": { "name": "punctuation.definition.parameters.begin.tabscript" }
+            "1": { "name": "entity.name.function.tabscript" },
+            "2": { "name": "punctuation.definition.parameters.begin.tabscript" }
           },
           "endCaptures": {
             "1": { "name": "punctuation.definition.parameters.end.tabscript" }
@@ -232,7 +232,7 @@
         },
         {
           "name": "entity.name.function.tabscript",
-          "match": "\\b([a-zA-Z_$][a-zA-Z0-9_$]*)(?=\\s*[&(])"
+          "match": "\\b([a-zA-Z_$][a-zA-Z0-9_$]*)(?=\\s*(\\.\\.|\\())"
         }
       ]
     },
@@ -254,7 +254,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.tabscript",
-          "match": "\\b(string|number|boolean|symbol|any|void|never|unknown|bigint|object)\\b"
+          "match": "\\b(string|number|boolean|symbol|any|void|never|unknown|bigint|object|this)\\b"
         },
         {
           "name": "entity.name.type.tabscript",

@@ -1,8 +1,10 @@
+![TabScript logo](tabscript.png)
+
 # TabScript
 
-TabScript is an alternative syntax for TypeScript. Think CoffeeScript for the modern age: indentation replaces braces and common patterns get shorter syntax.
+TabScript is an alternative syntax for TypeScript. Like CoffeeScript, but for a more civilized age. Indentation replaces braces and common patterns get shorter syntax.
 
-TabScript is especially well-suited for building domain-specific languages thanks to its plugin system that lets you extend the language with custom syntax, while still leveraging TypeScript's complete type checking and IDE (VSCode only for now) support.
+Due to its plugin system, TabScript is especially well-suited for building domain-specific languages. It lets you extend the language with custom syntax, while still leveraging TypeScript's complete type checking and IDE (VSCode only for now) support.
 
 **[📚 Read the full documentation and interactive tutorial](https://tabscript.vanviegen.net/TabScript_Tutorial/)**
 

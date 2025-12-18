@@ -30,5 +30,5 @@
     },
     "treatWarningsAsErrors": true,
     "out": "./dist-docs",
-    "customJs": "docs/custom.js"
+    "customFooterHtml": "<script defer src=\"/assets/livecode/livecode.js\" type=\"module\"></script>"
 }

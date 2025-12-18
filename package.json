@@ -1,7 +1,7 @@
 {
     "name": "tabscript",
     "version": "2.0.0",
-    "description": "Indentation-based TypeScript syntax for building clean DSLs with plugin support.",
+    "description": "Indentation-based compile-to-TypeScript language with syntax plugin support.",
     "main": "dist-min/tabscript.js",
     "files": [
         "bin",
@@ -26,8 +26,8 @@
     "scripts": {
         "build": "rm -rf dist dist-min ; tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts && chmod a+x dist/cli.js && mkdir -p dist-min && for f in dist/*.js; do terser --module --mangle module --keep-fnames --source-map -o dist-min/$(basename $f) -- $f; done && cp dist/*.d.ts dist-min",
         "build-extension": "cd vscode-extension && tsc -p .",
-        "build-all": "npm run build && npm run build-extension",
-        "build-docs": "npm run build && npx esbuild docs/custom.src.js --bundle --format=esm --minify --outfile=docs/custom.js && typedoc && cp docs/theme/style.css docs/theme/highlight.css dist-docs/assets/ && rm -rf dist-docs/assets/tabscript && cp -r dist dist-docs/assets/tabscript && cp vscode-extension/syntaxes/tabscript.tmLanguage.json dist-docs/assets/tabscript/",
+        "build-all": "npm run build && npm run build-docs && npm run build-extension",
+        "build-docs": "typedoc && npx esbuild docs/livecode.js --bundle --format=esm --splitting --minify --outdir=dist-docs/assets/livecode && cp docs/theme/style.css docs/theme/highlight.css dist-docs/assets/ && cp tabscript.png docs/favicon.ico dist-docs/ && rm -rf dist-docs/assets/tabscript && cp -r dist dist-docs/assets/tabscript && cp vscode-extension/syntaxes/tabscript.tmLanguage.json dist-docs/assets/tabscript/",
         "deploy-docs": "npm run build-docs && rsync -avz --delete dist-docs/ frank@tabscript.vanviegen.net:webcentral-projects/tabscript.vanviegen.net/public/",
         "watch": "tsc --target es2023 --module nodenext --moduleResolution nodenext --declaration --sourceMap --outDir dist src/*.ts --watch",
         "watch-extension": "cd vscode-extension && tsc -p . --watch",

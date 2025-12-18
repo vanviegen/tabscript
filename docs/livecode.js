@@ -2,22 +2,17 @@
 // and augments TabScript examples to allow editing and transpilation in real-time.
 // This is the source file - it gets bundled by esbuild during build-docs.
 
-// Static imports for Shiki (bundled at build time)
+// Static imports for basic Shiki highlighting (bundled at build time)
 import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
-import { createOnigurumaEngine } from 'shiki/engine/oniguruma';
-import { shikiToMonaco } from '@shikijs/monaco';
 import githubDark from '@shikijs/themes/github-dark';
 import langTypescript from '@shikijs/langs/typescript';
-import langJavascript from '@shikijs/langs/javascript';
-import langBash from '@shikijs/langs/bash';
-import langShellscript from '@shikijs/langs/shellscript';
-import langHtml from '@shikijs/langs/html';
-import langJson from '@shikijs/langs/json';
-import langCss from '@shikijs/langs/css';
 
 // Static import for tabscript transpiler
 import { tabscript } from 'tabscript';
+
+// Lazy-loaded modules (loaded only when Edit is clicked)
+let monacoModules = null;
 
 // Virtual file cache for plugin examples
 // Maps filename -> TabScript source code
@@ -142,18 +137,11 @@ function loadShikiHighlighter() {
             themes: [githubDark],
             langs: [
                 langTypescript,
-                langJavascript,
-                langBash,
-                langShellscript,
-                langHtml,
-                langJson,
-                langCss,
                 tabscriptLang
             ],
             engine: jsEngine
         });
 
-        shikiHighlighter = highlighter;
         return highlighter;
     })();
 
@@ -176,14 +164,12 @@ async function highlightCode(code, lang) {
 
     const theme = getCurrentTheme();
     
-    // Map language aliases
+    // Map language aliases - only support TypeScript and TabScript
     const langMap = {
         'tab': 'tabscript',
         'ts': 'typescript',
-        'js': 'javascript',
-        'sh': 'bash',
-        'shell': 'shellscript',
-        'console': 'bash'
+        'js': 'typescript', // Use TypeScript highlighter for JavaScript
+        'javascript': 'typescript'
     };
     const mappedLang = langMap[lang] || lang;
 
@@ -479,52 +465,56 @@ function createTranspilerWidget(codeE, initialCode) {
     return container;
 }
 
-// Load Monaco editor with Shiki-based highlighting (dynamically imported on demand)
-let monacoHighlighter = null;
-let monacoHighlighterPromise = null;
-
-// Create a modified version of github-dark with our custom background color
-const githubDarkCustom = {
-    ...githubDark,
-    colors: {
-        ...githubDark.colors,
-        'editor.background': '#161b22',
-        'editor.lineHighlightBackground': '#161b22',
-    }
-};
-
-// Load the Monaco-specific highlighter (uses Oniguruma for full compatibility with shikiToMonaco)
-async function loadMonacoHighlighter() {
-    if (monacoHighlighterPromise) return monacoHighlighterPromise;
+// Lazy-load Monaco editor dependencies
+async function loadMonacoModules() {
+    if (monacoModules) return monacoModules;
     
-    monacoHighlighterPromise = (async () => {
-        // Load the TabScript grammar
-        const grammar = await loadTabScriptGrammar();
-        if (!grammar) {
-            console.error('Could not load TabScript grammar for Monaco');
-            return null;
+    // Dynamic imports for Monaco-specific dependencies
+    const [
+        { createOnigurumaEngine },
+        { shikiToMonaco }
+    ] = await Promise.all([
+        import('shiki/engine/oniguruma'),
+        import('@shikijs/monaco')
+    ]);
+    
+    // Create a modified version of github-dark with our custom background color
+    const githubDarkCustom = {
+        ...githubDark,
+        colors: {
+            ...githubDark.colors,
+            'editor.background': '#161b22',
+            'editor.lineHighlightBackground': '#161b22',
         }
-        
-        // Create the TabScript language definition
-        const tabscriptLang = {
-            ...grammar,
-            name: 'tabscript',
-            aliases: ['tab']
-        };
-        
-        // Create highlighter with Oniguruma engine (required for shikiToMonaco)
-        // Use our custom theme with modified background color
-        const highlighter = await createHighlighterCore({
-            themes: [githubDarkCustom],
-            langs: [tabscriptLang],
-            engine: createOnigurumaEngine(import('shiki/wasm'))
-        });
-        
-        monacoHighlighter = highlighter;
-        return highlighter;
-    })();
+    };
     
-    return monacoHighlighterPromise;
+    // Load the TabScript grammar
+    const grammar = await loadTabScriptGrammar();
+    if (!grammar) {
+        console.error('Could not load TabScript grammar for Monaco');
+        return null;
+    }
+    
+    // Create the TabScript language definition
+    const tabscriptLang = {
+        ...grammar,
+        name: 'tabscript',
+        aliases: ['tab']
+    };
+    
+    // Create highlighter with Oniguruma engine (required for shikiToMonaco)
+    const highlighter = await createHighlighterCore({
+        themes: [githubDarkCustom],
+        langs: [tabscriptLang],
+        engine: createOnigurumaEngine(import('shiki/wasm'))
+    });
+    
+    monacoModules = {
+        highlighter,
+        shikiToMonaco
+    };
+    
+    return monacoModules;
 }
 
 async function loadEditor(containerE, language, code, onChange) {
@@ -543,9 +533,11 @@ async function loadEditor(containerE, language, code, onChange) {
         });
     }
 
-    // Load the Monaco highlighter and set up shikiToMonaco
-    const highlighter = await loadMonacoHighlighter();
-    if (highlighter) {
+    // Load Monaco-specific modules (Oniguruma engine, shikiToMonaco, etc.)
+    const modules = await loadMonacoModules();
+    if (modules) {
+        const { highlighter, shikiToMonaco } = modules;
+        
         // Register TabScript language
         monaco.languages.register({ id: 'tabscript' });
         
@@ -557,7 +549,7 @@ async function loadEditor(containerE, language, code, onChange) {
     const editor = monaco.editor.create(containerE, {
         value: code,
         language: 'tabscript',
-        theme: highlighter ? 'github-dark' : 'vs-dark',
+        theme: modules ? 'github-dark' : 'vs-dark',
         minimap: {
             enabled: false
         },
@@ -648,8 +640,8 @@ function detectLanguage(codeE) {
         }
     }
     
-    // Check for direct language class names
-    const knownLangs = ['tabscript', 'tab', 'typescript', 'ts', 'javascript', 'js', 'bash', 'sh', 'shell', 'html', 'css', 'json'];
+    // Check for direct language class names (only TypeScript and TabScript)
+    const knownLangs = ['tabscript', 'tab', 'typescript', 'ts', 'javascript', 'js'];
     for (const cls of classList) {
         if (knownLangs.includes(cls)) {
             return cls;

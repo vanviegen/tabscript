@@ -6,5 +6,4 @@ node_modules
 vscode-extension/out
 vscode-extension/tabscript
 vscode-extension/*.vsix
-docs/custom.js
 .playwright-mcp
