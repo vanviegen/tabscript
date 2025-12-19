@@ -1,12 +1,12 @@
 {
-  "name": "tabscript",
+  "name": "tabscript2",
   "displayName": "TabScript",
-  "description": "TabScript language support - indentation-based TypeScript for DSLs",
-  "version": "2.0.0",
-  "publisher": "tabscript",
+  "description": "TabScript language support - Indentation-based compile-to-TypeScript language with syntax plugin support.",
+  "version": "2.0.1",
+  "publisher": "VanViegen",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vanviegen/tabscript"
+    "url": "https://tabscript.vanviegen.net"
   },
   "license": "MIT",
   "engines": {
@@ -24,6 +24,16 @@
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
+  "files": [
+    "package.json",
+    "out/**",
+    "tabscript/**",
+    "syntaxes/**",
+    "language-configuration.json",
+    "LICENSE.txt",
+    "README.md",
+    "icon.png"
+  ],
   "contributes": {
     "languages": [
       {
@@ -37,8 +47,8 @@
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icon.svg",
-          "dark": "./icon.svg"
+          "light": "./icon.png",
+          "dark": "./icon.png"
         }
       }
     ],

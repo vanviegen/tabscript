@@ -1,0 +1,39 @@
+tabscript 2.0
+
+# Simple plugin for testing npm package loading.
+# Adds @greet prefix that wraps expressions with greeting text.
+#
+# Usage:
+#   import plugin "fake-npm-package/plugin.tab"
+#
+# Syntax:
+#   @greet "World"
+#   Transpiles to: "Hello, " + "World" + "!"
+#
+# @module plugins/greet
+
+import type {Parser, State, Options, PluginOptions} from "tabscript"
+
+# Create the greeting plugin parser extensions.
+export default function createGreetPlugin|p: Parser, globalOptions: Options, pluginOptions: PluginOptions|
+	# Keep reference to original parseExpression
+	origParseExpression := p.parseExpression.bind(p)
+
+	# Parse @greet prefix as an expression
+	parseGreetExpression := |s: State|
+		if !s.read.. '@greet'
+			return false
+
+		# Parse the expression to greet
+		s.emit.. '("Hello, " + ('
+		s.must.. p.parseExpression(s)
+		s.emit.. ') + "!")'
+		return true
+
+	# Override parseExpression to include our new syntax
+	p.parseExpression = |s: State|
+		if parseGreetExpression(s)
+			return true
+		return origParseExpression(s)
+
+	return null

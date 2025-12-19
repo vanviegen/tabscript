@@ -12,7 +12,7 @@ import type { Options, PluginModule } from './tabscript.js';
  * TabScript language version supported by this transpiler.
  * Code must have same major version and minor version <= this.
  */
-const VERSION = { major: 1, minor: 0 };
+const VERSION = { major: 2, minor: 0 };
 
 /**
  * Signature for parser methods that can be extended by plugins.

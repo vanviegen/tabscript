@@ -56,11 +56,22 @@ outputFile ||= path.join(
 // Plugin loader function
 const basePath = path.dirname(path.resolve(inputFile));
 function loadPlugin(pluginPath: string): PluginModule {
-  // Resolve relative to the input file's directory
-  let resolvedPath = path.resolve(basePath, pluginPath);
+  // Resolve the plugin path following npm import rules
+  let resolvedPath: string;
+  if (pluginPath.startsWith('./') || pluginPath.startsWith('../')) {
+    // Relative path - resolve relative to the input file's directory
+    resolvedPath = path.resolve(basePath, pluginPath);
+  } else {
+    // Non-relative path - use require.resolve to look up in node_modules
+    try {
+      resolvedPath = require.resolve(pluginPath, { paths: [basePath] });
+    } catch (e) {
+      throw new Error(`Failed to resolve plugin "${pluginPath}": ${e}`);
+    }
+  }
   
   // If it's a .tab file, we need to transpile it
-  if (pluginPath.endsWith('.tab')) {
+  if (resolvedPath.endsWith('.tab')) {
     const pluginSource = fs.readFileSync(resolvedPath, 'utf8');
     const pluginResult = tabscript(pluginSource, { js: true, whitespace: 'pretty', loadPlugin });
     if (pluginResult.errors.length > 0) {

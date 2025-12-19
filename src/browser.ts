@@ -1,7 +1,38 @@
-import {tabscript} from "./tabscript.js";
+import {tabscript, type PluginModule} from "./tabscript.js";
 
 let transformCache: Record<string,string> = {};
 let baseUrl = location.href;
+
+// Plugin loader function for browser environment
+function loadPlugin(pluginPath: string): PluginModule {
+    // Resolve plugin path relative to current baseUrl
+    const absoluteUrl = new URL(pluginPath, baseUrl).toString();
+    
+    // Fetch the plugin file synchronously
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', absoluteUrl, false);
+    xhr.send(null);
+    
+    if (xhr.status !== 200) {
+        throw new Error(`Failed to load plugin ${pluginPath}: HTTP ${xhr.status}`);
+    }
+    
+    const pluginSource = xhr.responseText;
+    
+    // Transpile the plugin TabScript to JavaScript
+    const pluginResult = tabscript(pluginSource, { js: true, whitespace: 'pretty', loadPlugin });
+    if (pluginResult.errors.length > 0) {
+        throw new Error(`Failed to transpile plugin ${pluginPath}: ${pluginResult.errors[0].message}`);
+    }
+    
+    // Evaluate the transpiled code to get the plugin module
+    // Convert ES module export to return value
+    // Match 'export default' with any whitespace between (including newlines)
+    const code = pluginResult.code.replace(/\bexport\s+default/, 'return');
+    const pluginFn = Function(code)();
+    
+    return { default: pluginFn };
+}
 
 function transformImport(url: string): string {
     // Do we need to translate?
@@ -21,7 +52,7 @@ function transformImport(url: string): string {
         const ts = xhr.responseText;
         let oldBaseUrl = baseUrl;
         baseUrl = absoluteUrl;
-        const js = tabscript(ts, {recover: true, transformImport}) + "\n//# sourceURL=" + absoluteUrl;
+        const js = tabscript(ts, {js: true, recover: true, transformImport, loadPlugin}) + "\n//# sourceURL=" + absoluteUrl;
         baseUrl = oldBaseUrl;
         const blob = new Blob([js], { type: 'application/javascript' });
         objectUrl = URL.createObjectURL(blob);
@@ -51,7 +82,7 @@ export async function transpile(tsE: Element): Promise<void> {
     
     // Convert TabScript to JavaScript
     const jsE = document.createElement('script');
-    let {code: js} = tabscript(ts, {transformImport});
+    let {code: js} = tabscript(ts, {js: true, transformImport, loadPlugin});
     if (src) js += "\n//# sourceURL=" + src;
     jsE.textContent = js;
     jsE.setAttribute('type', 'module');

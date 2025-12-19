@@ -1,0 +1,9 @@
+{
+  "name": "fake-npm-package",
+  "version": "1.0.0",
+  "description": "Test package for TabScript npm plugin loading",
+  "main": "plugin.tab",
+  "exports": {
+    "./plugin.tab": "./tab-plugin.tab"
+  }
+}

@@ -1,5 +1,5 @@
-tabscript 1.0
-import plugin "log-plugin.tab"
+tabscript 2.0
+import plugin "./log-plugin.tab"
 
 # Test @log with a function
 @log add := |a: number, b: number| a + b

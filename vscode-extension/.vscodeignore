@@ -1,9 +1,0 @@
-.vscode-test/**
-.gitignore
-.vscodeignore
-**/tsconfig.json
-**/.eslintrc.json
-**/node_modules/**
-src/**
-.vscode/**
-.editorconfig

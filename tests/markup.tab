@@ -1,5 +1,5 @@
-tabscript 1.0
-import plugin "markup-plugin.tab" {function: "A"}
+tabscript 2.0
+import plugin "./markup-plugin.tab" {function: "A"}
 A := |...args: any[]| 0
 
 # Test basic element

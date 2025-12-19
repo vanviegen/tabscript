@@ -11,7 +11,7 @@ TabScript is an alternate syntax for TypeScript that replaces braces with indent
 Let's start with a complete example that showcases TabScript's clean syntax:
 
 ```tabscript
-tabscript 1.0
+tabscript 2.0
 
 interface Task
 	title: string
@@ -51,7 +51,7 @@ A few things to note:
 Variable declarations use colons: a single `:` for `const` and a double `::` for `let`.
 
 ```tabscript
-tabscript 1.0
+tabscript 2.0
 
 # One colon means const
 x : number = 3
@@ -72,7 +72,7 @@ value : string or undefined
 
 Functions use `||` to wrap parameters instead of `()`. For arrow functions, you can omit braces when returning an expression.
 
-Note that we're leaving out the required `tabscript 1.0` header in the following examples for brevity.
+Note that we're leaving out the required `tabscript 2.0` header in the following examples for brevity.
 
 ```tabscript
 # Arrow functions
@@ -340,7 +340,7 @@ export default function||;
 ```
 
 ```tabscript
-tabscript 1.0
+tabscript 2.0
 import plugin "./my-plugin.tab"
 ```
 
@@ -353,7 +353,7 @@ export default function|parser, options, pluginOptions|
 ```
 
 ```tabscript
-tabscript 1.0
+tabscript 2.0
 import plugin "./options-demo.tab" {function: "UI", debug: true}
 ```
 
@@ -369,7 +369,7 @@ Here's a plugin that adds an `@log` decorator for automatic function call loggin
 
 ```tabscript
 # @file: log-plugin.tab
-tabscript 1.0
+tabscript 2.0
 
 import type {Parser, State, Options} from "tabscript"
 
@@ -405,7 +405,7 @@ export default function|p: Parser, options: Options|
 Usage:
 
 ```tabscript
-tabscript 1.0
+tabscript 2.0
 import plugin "./log-plugin.tab"
 
 @log add := |a: number, b: number| a + b
@@ -484,7 +484,7 @@ A more complex plugin can add entirely new syntax. Here's a simplified markup pl
 
 ```tabscript
 # @file: markup.tab
-tabscript 1.0
+tabscript 2.0
 
 import type {Parser, State, Options} from "tabscript"
 
@@ -524,7 +524,7 @@ export default function|p: Parser, options: Options|
 Usage:
 
 ```tabscript
-tabscript 1.0
+tabscript 2.0
 import plugin "./markup.tab"
 
 :div.container.highlight "Hello world"

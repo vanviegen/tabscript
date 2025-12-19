@@ -64,11 +64,22 @@ function createPluginLoader(basePath: string, tabscriptFn?: (source: string, opt
   const transpiler = tabscriptFn ?? findLocalTabscript(basePath) ?? vendoredTabscript;
   
   const loadPlugin = (pluginPath: string): any => {
-    // Resolve relative to the base path
-    let resolvedPath = path.resolve(basePath, pluginPath);
+    // Resolve the plugin path following npm import rules
+    let resolvedPath: string;
+    if (pluginPath.startsWith('./') || pluginPath.startsWith('../')) {
+      // Relative path - resolve relative to the base path
+      resolvedPath = path.resolve(basePath, pluginPath);
+    } else {
+      // Non-relative path - use require.resolve to look up in node_modules
+      try {
+        resolvedPath = requireFromCwd.resolve(pluginPath, { paths: [basePath] });
+      } catch (e) {
+        throw new Error(`Failed to resolve plugin "${pluginPath}": ${e}`);
+      }
+    }
     
     // If it's a .tab file, we need to transpile it
-    if (pluginPath.endsWith('.tab')) {
+    if (resolvedPath.endsWith('.tab')) {
       const pluginSource = fs.readFileSync(resolvedPath, 'utf8');
       const pluginBasePath = path.dirname(resolvedPath);
       // Pass the same transpiler to nested plugins for consistency

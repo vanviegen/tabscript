@@ -54,7 +54,7 @@ function loadPluginFromCache(path) {
     
     // Ensure header
     if (!source.trim().startsWith('tabscript ')) {
-        source = 'tabscript 1.0\n\n' + source;
+        source = 'tabscript 2.0\n\n' + source;
     }
     
     // Transpile the plugin to JavaScript
@@ -200,7 +200,7 @@ function ensureHeader(code) {
     if (hasHeader(code)) {
         return code;
     }
-    return 'tabscript 1.0\n\n' + code;
+    return 'tabscript 2.0\n\n' + code;
 }
 
 // Transpile TabScript code

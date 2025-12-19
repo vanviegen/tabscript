@@ -1,4 +1,4 @@
-tabscript 1.0
+tabscript 2.0
 
 export ask := |answer: any| `The answer is ${answer}. What is the question?`
 export question := "How many roads must a man walk down?"

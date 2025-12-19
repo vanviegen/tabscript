@@ -1,4 +1,4 @@
-tabscript 1.0
+tabscript 2.0
 
 # Logging plugin for TabScript.
 # Adds @log prefix to variable declarations to automatically log function calls.

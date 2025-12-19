@@ -11,7 +11,7 @@ Due to its plugin system, TabScript is especially well-suited for building domai
 ## Quick Example
 
 ```tabscript
-tabscript 1.0
+tabscript 2.0
 
 # Define a constant initialized to a function
 greet := |name: string|
@@ -92,7 +92,7 @@ TabScript's plugin system lets you extend the language with custom syntax. Here'
 
 ```tabscript
 # @file: inspect-plugin.tab
-tabscript 1.0
+tabscript 2.0
 export default function|p, options|
 	orig := p.parseClass.bind(p)
 	p.parseClass = |s|
@@ -108,7 +108,7 @@ export default function|p, options|
 ```
 
 ```tabscript
-tabscript 1.0
+tabscript 2.0
 import plugin "./inspect-plugin.tab"
 x := 3
 y := @(x * 2) + @(Math.sqrt(16))
@@ -129,7 +129,7 @@ For in-browser transpilation:
 </script>
 
 <script type="text/tabscript">
-  tabscript 1.0
+  tabscript 2.0
   console.log.. "Hello from TabScript!"
 </script>
 ```

@@ -58,7 +58,7 @@ A(`input type=text name=username placeholder=`,"Your name",`color:blue fontSize:
 
 A(`input value=`,true,`placeholder=`,`Test${42}`);
 
-	const tag="d"+"iv";
+const tag="d"+"iv";
 A(`${tag}#`,`T${'e'+'x'}t`);
 
 A(`div span b#`,"Hi mom");
@@ -127,7 +127,7 @@ A(`div`,function(){
 
 const something=true;
 A(`div`,function(){
-		if(something){
+	if(something){
 		A(`.myclass`);}
 	A(`id=test`);
 	A(`data-value=`,`${"x "+"y"}`);

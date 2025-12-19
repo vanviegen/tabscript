@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabScript Browser Test</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        #output {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success {
+            color: #059669;
+            font-weight: bold;
+        }
+        .info {
+            color: #0284c7;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>TabScript Browser Test</h1>
+    <div id="output">
+        <p>Loading TabScript...</p>
+    </div>
+
+    <!-- Load the TabScript browser transpiler -->
+    <script type="module" src="dist/browser.js"></script>
+    
+    <!-- Load and auto-transpile the TabScript application -->
+    <script type="text/tabscript" src="app.tab"></script>
+</body>
+</html>

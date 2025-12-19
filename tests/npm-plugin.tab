@@ -1,0 +1,13 @@
+tabscript 2.0
+import plugin "fake-npm-package/plugin.tab"
+
+# Test the @greet syntax from the npm package plugin
+greeting := @greet "World"
+
+console.log.. greeting
+
+# Test with a more complex expression
+title := "TabScript"
+message := @greet title
+
+console.log.. message

@@ -1,0 +1,29 @@
+tabscript 2.0
+# Browser test plugin - adds a custom @greet decorator syntax
+export default |parser, options|
+	GREET_PATTERN := parser.pattern.. /\@greet\s+/ '@greet decorator'
+	STRING_PATTERN := parser.pattern.. /(['"])(?:(?=(\\?))\2.)*?\1/ 'string'
+	
+	# Save reference to original method
+	origParseStatement := parser.parseStatement.bind(parser)
+	
+	# Override to handle @greet decorator
+	parser.parseStatement = |state|
+		snapshot := state.snapshot()
+		
+		# Try to match @greet decorator
+		if state.read.. GREET_PATTERN
+			# Read the name string to greet
+			nameStr := state.read.. STRING_PATTERN
+			if nameStr
+				# Remove quotes from the string
+				name := nameStr.slice.. 1 -1
+				state.emit.. `console.log('Plugin says: Hello, ${name}!');`
+				state.emit.. `addOutput('✓ Plugin working: @greet ${name} executed');`
+				return true
+			else
+				snapshot.revert()
+				return false
+		
+		# Fall back to original behavior
+		return origParseStatement.. state

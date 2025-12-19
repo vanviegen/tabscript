@@ -1,4 +1,4 @@
-tabscript 1.0
+tabscript 2.0
 import plugin "./inspect-plugin.tab"
 x := 3
 y := @(x * 2) + @(Math.sqrt(16))

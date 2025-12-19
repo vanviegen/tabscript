@@ -1,0 +1,51 @@
+tabscript 2.0
+# Browser test application
+
+import plugin "./plugin.tab"
+
+# Helper to add output to the page
+function addOutput(message: string): void
+	output := document.getElementById('output')
+	if output
+		p := document.createElement('p')
+		p.className = 'info'
+		p.textContent = message
+		output.appendChild(p)
+
+# Clear initial loading message
+outputDiv := document.getElementById('output')
+if outputDiv
+	outputDiv.innerHTML = '<h2 class="success">✓ TabScript Loaded Successfully!</h2>'
+
+# Test basic TabScript functionality
+addOutput('✓ TabScript transpiled and executed')
+
+# Test that TypeScript types work
+testNumber: number = 42
+testString: string = "Hello from TabScript"
+addOutput(`✓ TypeScript types working: ${testNumber}, "${testString}"`)
+
+# Test arrow function syntax with pipes
+add := |a: number, b: number| a + b
+result := add(10, 32)
+addOutput(`✓ Arrow functions working: 10 + 32 = ${result}`)
+
+# Test indentation-based block
+if true
+	addOutput('✓ Indentation-based blocks working')
+
+# Test method call spread operator
+arr := [1, 2, 3]
+console.log.. 'Array:' arr
+
+# Test plugin decorator
+@greet "World"
+function testPlugin(): void
+	addOutput('✓ Plugin @greet decorator working')
+
+testPlugin()
+
+# Final success message
+addOutput('✓ All tests passed!')
+
+console.log('Browser test completed successfully')
