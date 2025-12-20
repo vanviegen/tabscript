@@ -76,3 +76,10 @@ await page.goto(`http://127.0.0.1:8765/tests/browser/?v=${Date.now()}`);
 Parser methods: Return truthy on success, falsy on failure. Leave state unchanged on failure.
 
 Debug: `--debug` shows tokens, check `matchOptions` in errors.
+
+## Deploying
+
+- git push
+- npm publish
+- npm run deploy-docs
+- npm run package-extension # and then manually upload it at https://marketplace.visualstudio.com/manage/publishers/vanviegen (using the 3 dots)

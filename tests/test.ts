@@ -7,9 +7,15 @@ import{
 	answer,}
 from './typescript';
 
+console.log(  getGreeting("stranger"));
+
 import {ask as getQuestion, question} from './tabscript';
 
+const q=getQuestion(42);
+
 import * as E from './tabscript';
+
+console.log(  E.question);
 
 const x:number=3;
 let xx:string|  undefined = undefined;

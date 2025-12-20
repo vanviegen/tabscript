@@ -2,7 +2,7 @@
   "name": "tabscript2",
   "displayName": "TabScript",
   "description": "TabScript language support - Indentation-based compile-to-TypeScript language with syntax plugin support.",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "publisher": "VanViegen",
   "repository": {
     "type": "git",

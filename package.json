@@ -1,6 +1,6 @@
 {
     "name": "tabscript",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "description": "Indentation-based compile-to-TypeScript language with syntax plugin support.",
     "main": "dist-min/tabscript.js",
     "files": [
@@ -20,6 +20,22 @@
             "development": "./dist/browser.js",
             "types": "./dist/browser.d.ts",
             "default": "./dist-min/browser.js"
+        },
+        "./vite": {
+            "types": "./dist/vite-plugin.d.ts",
+            "default": "./dist/vite-plugin.js"
+        },
+        "./webpack": {
+            "types": "./dist/webpack-loader.d.ts",
+            "default": "./dist/webpack-loader.js"
+        },
+        "./esbuild": {
+            "types": "./dist/esbuild-plugin.d.ts",
+            "default": "./dist/esbuild-plugin.js"
+        },
+        "./rollup": {
+            "types": "./dist/rollup-plugin.d.ts",
+            "default": "./dist/rollup-plugin.js"
         },
         "./package.json": "./package.json"
     },
@@ -64,6 +80,7 @@
     "devDependencies": {
         "@shikijs/langs": "^3.19.0",
         "@shikijs/themes": "^3.19.0",
+        "@shikijs/monaco": "^3.20.0",
         "@types/node": "^24.10.0",
         "@types/vscode": "^1.85.0",
         "@typescript-eslint/eslint-plugin": "^6.13.0",
@@ -80,6 +97,5 @@
     "type": "module",
     "types": "dist-min/tabscript.d.ts",
     "dependencies": {
-        "@shikijs/monaco": "^3.20.0"
     }
 }

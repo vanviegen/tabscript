@@ -1,5 +1,3 @@
-- Test plugin loading from browser.ts
-- Allow plugin loading from node_modules
 - Improve pretty output mode
 - Semantic highlighting for VSCode (https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide)
 - Support for other IDEs

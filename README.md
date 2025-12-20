@@ -66,15 +66,105 @@ npm install tabscript
 
 ## Usage
 
-```bash
-# Transpile to TypeScript
-tabscript input.tab --output output.ts
+### CLI
 
-# Transpile to JavaScript
+```bash
+# Transpile to TypeScript (to file.ts by default)
+tabscript file.tab
+
+# Transpile to JavaScript with custom output file
 tabscript input.tab --js --output output.js
 
-# With pretty formatting
-tabscript input.tab --whitespace pretty --output output.ts
+# With pretty formatting (instead attempting to preserve line and column numbers)
+tabscript file.tab --whitespace pretty
+
+# Type check without generating files (for CI/git hooks)
+tabscript input.tab --check
+
+# Type check multiple files
+tabscript src/**/*.tab --check
+```
+
+### Bundler Integration
+
+TabScript includes plugins for all major bundlers:
+
+#### Vite
+
+```js
+// vite.config.js
+import { tabscriptPlugin } from 'tabscript/vite';
+
+export default {
+  plugins: [
+    tabscriptPlugin({
+      // outputMode: 'ts'  // Optional: output TypeScript for type checking
+    })
+  ]
+};
+```
+
+#### Webpack
+
+```js
+// webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.tab$/,
+        use: 'tabscript/webpack'
+      }
+    ]
+  }
+};
+```
+
+#### esbuild
+
+```js
+// build.js
+import { tabscriptPlugin } from 'tabscript/esbuild';
+import * as esbuild from 'esbuild';
+
+await esbuild.build({
+  entryPoints: ['src/index.tab'],
+  bundle: true,
+  plugins: [tabscriptPlugin()]
+});
+```
+
+#### Rollup
+
+```js
+// rollup.config.js
+import { tabscriptPlugin } from 'tabscript/rollup';
+
+export default {
+  input: 'src/index.tab',
+  plugins: [tabscriptPlugin()]
+};
+```
+
+**Options:**
+- `outputMode`: Output format for transpiled code
+  - Vite/esbuild: Defaults to `'ts'` (preserves types, handled natively)
+  - Webpack/Rollup: Defaults to `'js'` (requires loader config for TS)
+- Plus all core transpiler options: `debug`, `recover`, `whitespace`, etc.
+
+**Note on Type Checking:** Type checking for `.tab` files happens in your IDE via the VSCode extension, which transpiles TabScript to TypeScript in memory and uses TypeScript's language service. For CI/CD pipelines and git hooks, use `tabscript --check` to type-check files without generating output. Bundlers only handle build-time transpilation and typically strip types without checking them (for speed). This is the same workflow as TypeScript itself - `tsc` checks types, bundlers just transform code.
+
+**Example CI/CD setup:**
+```
+# .github/workflows/test.yml
+- name: Type check TabScript files
+  run: npx tabscript src/**/*.tab --check
+```
+
+**Example git hook:**
+```bash
+# .husky/pre-commit
+npx tabscript $(git diff --cached --name-only --diff-filter=ACM | grep '\.tab$') --check
 ```
 
 ## Key Features
