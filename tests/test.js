@@ -228,5 +228,5 @@ const isSet=x!=null;
 try{3/0;}catch{}
 
 try{3/0;}
-catch e{console.log(  e);}
+catch(e){console.log( e);}
 finally{console.log(  "done");}

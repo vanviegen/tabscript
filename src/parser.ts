@@ -22,26 +22,16 @@ const VERSION = { major: 2, minor: 0 };
 export type ParserMethod = (this: Parser, s: State, ...args: any[]) => boolean | string;
 
 
-
-
-
-function descr(regexp: RegExp, name: string): RegExp {
-    regexp.toString = () => '<' + name + '>';
-    return regexp;
-}
-
 // Token patterns
-const IDENTIFIER = descr(/[a-zA-Z_$][0-9a-zA-Z_$]*/y, "identifier");
-const STRING = descr(/(['"])(?:(?=(\\?))\2.)*?\1/y, "string");
-const NUMBER = descr(/[+-]?(?:0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/y, "number");
-const OPERATOR = descr(/instanceof\b|in\b|or\b|and\b|[!=]~|[+\-*\/!=<>]=|[+\-*\/=<>]|%[a-z_]+/y, "bin-op");
-const WITHIN_BACKTICK_STRING = descr(/[\s\S]*?(\${|`)/y, "`string`");
-const EXPRESSION_PREFIX = descr(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b|new\b/y, "unary-op");
-const REGEXP = descr(/\/(\\.|[^\/])+\/[gimsuyd]*/y, "regexp");
-const INTEGER = descr(/\d+/y, "integer");
-const PATH = descr(/[^\s()]+/y, "path");
-        
-
+const IDENTIFIER = pattern(/[a-zA-Z_$][0-9a-zA-Z_$]*/y, "identifier");
+const STRING = pattern(/(['"])(?:(?=(\\?))\2.)*?\1/y, "string");
+const NUMBER = pattern(/[+-]?(?:0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/y, "number");
+const OPERATOR = pattern(/instanceof\b|in\b|or\b|and\b|[!=]~|[+\-*\/!=<>]=|[+\-*\/=<>]|%[a-z_]+/y, "bin-op");
+const WITHIN_BACKTICK_STRING = pattern(/[\s\S]*?(\${|`)/y, "`string`");
+const EXPRESSION_PREFIX = pattern(/\+\+|--|!|\+|-|typeof\b|delete\b|await\b|new\b/y, "unary-op");
+const REGEXP = pattern(/\/(\\.|[^\/])+\/[gimsuyd]*/y, "regexp");
+const INTEGER = pattern(/\d+/y, "integer");
+    
 
 const REPLACE_OPERATORS: Record<string, string> = {
     "or": "||",
@@ -703,8 +693,11 @@ export class Parser {
         }
         let handled = false;
         if (s.accept('catch')) {
-            if (s.accept(IDENTIFIER)) {
+            const identifier = s.read(IDENTIFIER);
+            if (identifier) {
+                s.emit(false, '(', identifier);
                 if (s.acceptType(':')) s.must(this.parseType(s));
+                s.emit(')');
             }
             if (!this.parseBlock(s)) {
                 s.emit('{')
